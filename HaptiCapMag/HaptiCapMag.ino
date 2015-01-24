@@ -19,11 +19,12 @@ This code is released under a Creative Commons Attribution 4.0 International Lic
 
 // Declare global variables
 HMC5883L compass;
+
 uint8_t motor_pins[8];
 float motor_fracs[8];
 
 float sampling_rate = 15.0;
-long fractiona_subunit = 20;      // Clock fractional subunit for motor duty cycle
+long fractional_subunit = 20;      // Clock fractional subunit for motor duty cycle
 long cDelay = 1000/sampling_rate; // Delay between samples
 
 float frac = 0.5;                 // Base fractional on-time
@@ -185,6 +186,14 @@ float calc_north(float x, float y, float decl) {
     if (north < 0) {
         north += 360.0;
     }
+
+void setup() {
+    
+}
+
+void loop() {
+    
+}
 
     return north + declination;
 }
