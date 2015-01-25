@@ -34,6 +34,7 @@ HaptiCapMagSettings::HaptiCapMagSettings(uint32_t base_location) {
     nMotors = 8;
     useCalibration = true;
     gain = 1;
+    averageRate = 0;
 
     for(int i = 0; i < HC_MAX_NMOTORS; i++) {
         pinLocs[i] = -1;                // Invalid motor
@@ -127,6 +128,17 @@ uint8_t HaptiCapMagSettings::getGain() {
     */
 
     return gain;
+}
+
+uint8_t HaptiCapMagSettins::getAveraging() {
+    /** Get the averaging rate value fromt he current settings object.
+
+    See `setAveraging()` for more details.
+
+    @return Returns the averaging rate value.
+    */
+
+    return averageRate;
 }
 
 uint8_t HaptiCapMagSettings::setDeclination(float declination) {
@@ -295,6 +307,30 @@ uint8_t HaptiCapMagSettings::setGain(uint8_t gain_value) {
     return 0;
 }
 
+uint8_t HaptiCapMagSettings::setAveraging(uint8_t averaging_rate) {
+    /** Set the averaging rate for the HMC5883L magnetometer.
+    
+    @param[in] averaging_rate The number of averages per measurement from the magnetometer will
+                              be set to `1<<averaging_rate`. If using the provided `HMC5883L`
+                              library, aliases are defined for the valid values:
+                            |  Alias     | Value | Rate |
+                            | :--------- | :---: | :--: |
+                            | `HMC_AVG1` |   0   |  1   |
+                            | `HMC_AVG2` |   1   |  2   |
+                            | `HMC_AVG4` |   2   |  4   |
+                            | `HMC_AVG8` |   3   |  8   |
+
+    @return Returns 0 on no error. Returns `EC_INVALID_AVG_SETTING`.
+    */
+
+    if (averaging_rate > 3) {
+        return (err_code = EC_INVALID_AVG_SETTING);
+    }
+
+    averageRate = averaging_rate;
+    return 0;
+}
+
 uint8_t HaptiCapMagSettings::setPinLoc(uint8_t motor, int8_t pin_loc) {
     /** Set the pin location for the specified motor.
 
@@ -393,6 +429,7 @@ uint8_t HaptiCapMagSettings::writeAll() {
     writePhaseOffset();
     writeUseCalibration();
     writeGain();
+    writeAveraging();
 
     for (int i = 0; i < HC_MAX_NMOTORS; i++) {
         writePinLoc(i);
@@ -417,6 +454,7 @@ uint8_t HaptiCapMagSettings::readAll() {
     phaseOffset = readPhaseOffset();
     useCalibration = readUseCalibration();
     gain = readGain();
+    averageRate = readAveraging();
 
     // Array settings
     for (int i = 0; i < HC_MAX_NMOTORS; i++) {
@@ -561,6 +599,36 @@ void HaptiCapMagSettings::writeUseCalibration() {
     }
 }
 
+void HaptiCapMagSettings::writeGain() {
+    /** Write the gain setting to the EEPROM memory
+
+    Writes the gain setting stored in the settings object (which can be user specified by a call
+    to `setGain()`) to the EEPROM memory. The setting is stored as a `uint8_t` at location
+    `HC_GAIN_ADDR`.
+    */
+
+    uint8_t cGain = readGain();
+
+    if (gain != cGain) {
+        EEPROM.writeByte(HC_GAIN_ADDR + base_addr, gain);
+    }
+}
+
+void HaptiCapMagSettings::writeAveraging() {
+    /** Write the averaging rate setting to the EEPROM memory
+
+    Writes the averaging rate setting stored in the settings object (which can be user specified by
+    a call to `setAveraging()`) to the EEPROM memory. The setting is stored as a `uint8_t` at
+    location `HC_AVG_ADDR`.
+    */
+
+    uint8_t cAverageRate = readAveraging();
+
+    if (averageRate != cAverageRate) {
+        EEPROM.writeByte(HC_AVG_ADDR + base_addr, averageRate);
+    }
+}
+
 void HaptiCapMagSettings::writePinLoc(uint8_t motor) {
     /** Write the pin location for the specified motor to the EEPROM memory.
 
@@ -687,6 +755,18 @@ uint8_t HaptiCapMagSettings::readGain() {
     return EEPROM.readByte(HC_GAIN_ADDR + base_addr);
 }
 
+uint8_t HaptiCapMagSettings::readAveraging() {
+    /** Reads the averaging rate from the EEPROM memory
+
+    The inverse operation from `writeAveraging()`. Reads the averaging setting from the EEPROM
+    memory, which is stored as a `uint8_t` at location `HC_AVG_ADDR`.
+
+    @return Returns the averaging rate.
+    */
+
+    return EEPROM.readByte(HC_AVG_ADDR + base_addr);
+}
+
 int8_t HaptiCapMagSettings::readPinLoc(uint8_t motor) {
     /** Reads a single pin location from the EEPROM memory
     
@@ -749,6 +829,7 @@ uint8_t HaptiCapMagSettings::calculateChecksum(uint8_t settings_version) {
     crc = update_CRC8_float(crc, phaseOffset);
     crc = update_CRC8_byte(crc, useCalibration);
     crc = update_CRC8_byte(crc, gain);
+    crc = update_CRC8_byte(crc, averageRate);
 
     // Update the array settings - these are done in order, even though doing it in parallel would
     // only require a single loop.

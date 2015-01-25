@@ -34,7 +34,7 @@ Addresses of metadata settings. 8 bytes are reserved (`0x00` to `0x08`).
 /** @defgroup ScalarSettings Scalar settings
 @ingroup EEPROMAddrs
 Single value settings for the magnetometer HaptiCap. 32 bytes are allocated, from
-`0x09` to `0x29`, 20 of which are currently used.
+`0x09` to `0x29`, 21 of which are currently used.
 @{
 */
 #define HC_NMOTORS_ADDR 0x09            /*!< Number of motors in the HaptiCap (max: 16)
@@ -69,6 +69,10 @@ Single value settings for the magnetometer HaptiCap. 32 bytes are allocated, fro
 
                                          1 byte, type `uint8_t`, `0x1e`
                                         */
+#define HC_AVG_ADDR 0x1f                /*!< The averaging rate to be used.
+                                        See `HaptiCapMagSettins::setAveraging()` for details.
+
+                                        1 byte, type `uint8_t`, `0x1f`. */        
 /** @} */
 
 /** @defgroup ArraySettings Array settings
@@ -92,9 +96,12 @@ of 16 items.
 Error codes for the HaptiCapMagSettings
 @{ */
 #define EC_INVALID_CHECKSUM 32      /*!< Checksum stored in EEPROM does not match object checksum.*/
-#define EC_INVALID_GAIN_SETTING 33  /*!< Specified gain setting is invalid. */
-#define EC_INVALID_MOTOR 34         /*!< Specified motor is invalid. */
-#define EC_INVALID_DUTY_CYCLE 35    /*!< Specified duty cycle is outside the valid range [0, 1]. */
+#define EC_INVALID_GAIN_SETTING 33  /*!< Specified gain setting is invalid. 
+                                         Must be in range [0, 7]. */
+#define EC_INVALID_AVG_SETTING 34   /*!< Specified averaging setting is invalid.
+                                         Must be in range [0, 3]. */
+#define EC_INVALID_MOTOR 35         /*!< Specified motor is invalid. */
+#define EC_INVALID_DUTY_CYCLE 36    /*!< Specified duty cycle is outside the valid range [0, 1]. */
 /** @} */
 
 class HaptiCapMagSettings {
@@ -111,6 +118,7 @@ public:
     float getPhaseOffset(void);
     bool getUseCalibration(void);
     uint8_t getGain(void);
+    uint8_t getAveraging(void);
 
     uint8_t getPinLoc(uint8_t motor);
     uint8_t getMotorCal(uint8_t motor);
@@ -123,6 +131,7 @@ public:
     uint8_t setPhaseOffset(float phi);
     uint8_t setUseCalibration(bool use);
     uint8_t setGain(uint8_t gain);
+    uint8_t setAveraging(uint8_t avg_rate);
     uint8_t setPinLoc(uint8_t motor, uint8_t pin_loc);
     
     uint8_t setMotorCal(uint8_t motor, uint8_t motor_cal);
@@ -172,6 +181,7 @@ private:
 
     uint8_t nMotors;
     uint8_t gain;
+    uint8_t averageRate;
 
     float declination;
     float inclination;
