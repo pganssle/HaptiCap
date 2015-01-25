@@ -1,7 +1,7 @@
 /** @file
 Arduino sketch for HaptiCap haptic compass, using only the HMC5883L digital magnetometer and
-the microcontroller. In this version, the device parameters and motor calibrations are hard
-coded into the sketch.
+the microcontroller. In this version, the sketch attempts to read the device settings from
+the EEPROM storage region, which, if not found, is initialized to the hard-coded parameters.
 
 This code is released under a Creative Commons Attribution 4.0 International License
 ([CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
@@ -15,66 +15,79 @@ This code is released under a Creative Commons Attribution 4.0 International Lic
 #include <Wire.h>
 #include <Vec3.h>
 #include <HMC5883L.h>
+#include <HaptiCapMagSettings.h>
 #include <tgmath>
+
+#define SETTINGS_LOC 0x00
+#define N_MOTORS 8
 
 // Declare global variables
 HMC5883L compass;
-
-uint8_t motor_pins[8];
-float motor_fracs[8];
-
-float sampling_rate = 15.0;
-long fractional_subunit = 20;      // Clock fractional subunit for motor duty cycle
-long cDelay = 1000/sampling_rate; // Delay between samples
+HaptiCapMagSettings settings;
 
 float frac = 0.5;                 // Base fractional on-time
 
 uint8_t pin_start = 5;            // Pin 1 location
 uint8_t pin_interval = 1;         // Pins between 
 
+float motor_fracs[N_MOTORS];
+unsigned long cDelay;
+
 uint8_t cmotor = 8;               // Current active motor
-float declination = -2.8;         // Declination off north. E = negative, W = positive
-                                  // Find yours at http://www.ngdc.noaa.gov/geomag-web/#declination
 
 void setup() {
     // Initialize the compass
     compass = HMC5883L();
     compass.initialize();
 
-    // Round cDelay up
-    if (1000.0 / sampling_rate > cDelay) {
-        cDelay++;
+    settings = HaptiCapMagSettings(SETTINGS_LOC);       // Create the settings object
+    uint8_t read_all_err = settings.readAll();
+
+    // Checksum should be invalid on the first run, so we'll initialize it
+    if (read_all_err) {
+        settings = HaptiCapMagSettings(SETTINGS_LOC);   // Generate a new object to get the defaults
+        
+        settings.setNMotors(nMotors);
+
+        // Set up the pin locations and motor calibrations
+        for (int i = 0; i < settings.getNMotors(); i ++) {
+            settings.setPinLoc(i, pin_start + i*pin_interval);
+            settings.setMotorCal(i, frac);
+        }
+
+        settings.setDeclination(-2.8);  // Declination off north. E = negative, W = positive. Find
+                                        // yours at http://www.ngdc.noaa.gov/geomag-web/#declination
+
+        settings.writeAll();            // Write the base settings for next time.
     }
 
     // Set up the initial averaging rate and sensor gain
     compass.setAveragingRate(HMC_AVG8);     // 8 Averages per measurement
-    compass.setGain(HMC_GAIN400);           // +/- 4 G sensor range
-    compass.getCalibration();               // Calibrate the compass with the self test
+    compass.setGain(settings.getGain());
+
+    if (settings.getUseCalibration()) {
+        compass.getCalibration();               // Calibrate the compass with the self test
+    }
 
     // Set the measurement mode to Idle (no measurements)
     compass.setMeasurementMode(HMC_MeasurementIdle);
 
     // Initialize the digital pin outs and store the motor pin locations
-    for(int i = 0; i < 8; i++) {
-        uint8_t pin = pin_start + pin_interval*i;
-
-        motor_pins[i] = pin;
-        motor_fracs[i] = frac;
+    for (int i = 0; i < settings.getNMotors(); i++) {
+        int8_t pin = settings.getPinLoc(i);
+        motor_fracs[i] = settings.getMotorCal(i) / 255.0;   // Get motor calibrations as duty cycles
+        
+        // Skip unused motors.
+        if (pin < 0) {
+            continue;
+        }
 
         // Set up the pins and initialize low
         pinMode(pin, OUTPUT);
         digitalWrite(pin, LOW);
     }
 
-    /* Replace these with your own calibrations if you want */
-    //motor_fracs[0] = 1.0;
-    //motor_fracs[1] = 1.0;
-    //motor_fracs[2] = 1.0;
-    //motor_fracs[3] = 1.0;
-    //motor_fracs[4] = 1.0;
-    //motor_fracs[5] = 1.0;
-    //motor_fracs[6] = 1.0;
-    //motor_fracs[7] = 1.0;
+    cDelay = (unsigned long)(1.0/settings.getSampleRate() + 1); // Get sample delay, round up
 }
 
 void loop() {
@@ -84,10 +97,11 @@ void loop() {
     // If we're on a motor with a fractional duty cycle, set up a PWM cycle.
     // Try to use a sufficiently short fractional subunit to avoid perceptible
     // pulsation.
-    if(cmotor < 8 && motor_fracs[cmotor] < 1.0) {
-        unsigned long delay_decimation = cDelay/fractional_subunit;
+    if (cmotor < 8 && motor_fracs[cmotor] < 1.0) {
+        // Calculate the number of pulseWidth units make up the sampling period.
+        unsigned long delay_decimation = cDelay/settings.getPulseWidth();
 
-        float off_delay = cDelay*(1-motor_fracs[cmotor])/delay_decimation;
+        float off_delay = cDelay*(1-motor_fracs[cmotor]) / delay_decimation;
         float on_delay = cDelay*motor_fracs[cmotor] / delay_decimation;
 
         for(int i = 0; i < delay_decimation; i++) {
@@ -126,16 +140,14 @@ uint8_t select_motor(float phi) {
     @return Returns the motor closest to the angle phi.
     */
     
-    float phi_sep = 45.0;
-    float adjusted_heading = fmod(phi-phi_sep*1.5, 360.0);
+    float phi_sep = 360/settings.getNMotors();
+    float adjusted_heading = fmod(phi-phi_sep*0.5 + settings.getPhaseOffset(), 360.0);
 
     if(adjusted_heading < 0) {
         adjusted_heading = 360+adjusted_heading;
     }
 
-    int motor = (int)(adjusted_heading/phi_sep);
-
-    return (uint8_t) 7-motor;
+    return (uint8_t)(adjusted_heading/phi_sep);
 }
 
 void change_motor(uint8_t motor) {
@@ -144,15 +156,15 @@ void change_motor(uint8_t motor) {
     @param[in] motor The new selected motor
     */
     
-    if (cmotor < 8) {
+    if (cmotor < N_MOTORS) {
         set_motor(cmotor, LOW);
     }
 
-    if(motor < 8) {
+    if(motor < N_MOTORS) {
         set_motor(motor, HIGH);
     }
 
-    cmotor = motor; 
+    cmotor = motor; ,
 }
 
 void set_motor(uint8_t motor, bool h_low) {
@@ -162,11 +174,11 @@ void set_motor(uint8_t motor, bool h_low) {
     @param[in] h_low The new state of the motor
     */
 
-    if (motor > 8) {
+    if (motor > N_MOTORS) {
         return;
     }
 
-    digitalWrite(motor_pins[motor], h_low);
+    digitalWrite(settings.getPinLoc(motor), h_low);
 }
 
 float calc_north(float x, float y, float decl) {
@@ -186,14 +198,6 @@ float calc_north(float x, float y, float decl) {
     if (north < 0) {
         north += 360.0;
     }
-
-void setup() {
-    
-}
-
-void loop() {
-    
-}
 
     return north + declination;
 }
