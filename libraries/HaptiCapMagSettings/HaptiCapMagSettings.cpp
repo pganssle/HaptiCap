@@ -10,6 +10,7 @@ CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
 */
 
 #include <Arduino.h>
+#include <EEPROM.h>
 #include <EEPROMex.h>
 #include <HaptiCapMagSettings.h>
 #include <tgmath.h>
@@ -75,7 +76,7 @@ float HaptiCapMagSettings::getSampleRate() {
     return sampleRate;
 }
 
-unsigned short HaptiCapMagSettings::getPulseWidth() {
+uint16_t HaptiCapMagSettings::getPulseWidth() {
     /** Get the pulse width from the current settings object.
     
     See `setPulseWidth()` for more details.
@@ -94,7 +95,7 @@ uint8_t HaptiCapMagSettings::getNMotors() {
     @return Returns the number of motors.
     */
 
-    return NMotors;
+    return nMotors;
 }
 
 float HaptiCapMagSettings::getPhaseOffset() {
@@ -105,7 +106,7 @@ float HaptiCapMagSettings::getPhaseOffset() {
     @return Returns the phase offset.
     */
 
-    return phaseOffsets;
+    return phaseOffset;
 }
 
 bool HaptiCapMagSettings::getUseCalibration() {
@@ -130,7 +131,7 @@ uint8_t HaptiCapMagSettings::getGain() {
     return gain;
 }
 
-uint8_t HaptiCapMagSettins::getAveraging() {
+uint8_t HaptiCapMagSettings::getAveraging() {
     /** Get the averaging rate value fromt he current settings object.
 
     See `setAveraging()` for more details.
@@ -139,6 +140,38 @@ uint8_t HaptiCapMagSettins::getAveraging() {
     */
 
     return averageRate;
+}
+
+int8_t HaptiCapMagSettings::getPinLoc(uint8_t motor) {
+    /** Get the pin location for a given motor.
+    
+    See `setPinLoc()` for more details.
+
+    @return Returns the pin location or -2 if an invalid motor is specified.
+    */
+
+    if (motor >= HC_MAX_NMOTORS) {
+        err_code = EC_INVALID_MOTOR;
+        return -2;
+    }
+
+    return pinLocs[motor];
+}
+
+uint8_t HaptiCapMagSettings::getMotorCal(uint8_t motor) {
+    /** Get the motor calibration for a given motor.
+
+    See `setMotorCal()` for more details.
+
+    @return Returns the motor calibration as a fraction of 255. Returns 0 on error.
+    */
+
+    if (motor >= HC_MAX_NMOTORS) {
+        err_code = EC_INVALID_MOTOR;
+        return 0;
+    }
+
+    return motorCals[motor];
 }
 
 uint8_t HaptiCapMagSettings::setDeclination(float declination) {
@@ -198,7 +231,7 @@ uint8_t HaptiCapMagSettings::setSampleRate(float sample_rate) {
     */
 
     if (sample_rate < 0.75 or sample_rate > 160) {
-        return HC_EC_BAD_SAMPLERATE;
+        return EC_INVALID_SAMPLERATE;
     }
 
     sampleRate = sample_rate;
@@ -404,7 +437,7 @@ uint8_t HaptiCapMagSettings::setMotorCal(uint8_t motor, float motor_cal) {
             `setMotorCal(uint8_t, uint8_t)`.
     */
 
-    return setMotorCal(uint8_t motor, uint8_t((motor_cal*255) + 0.5));
+    return setMotorCal(motor, uint8_t((motor_cal*255) + 0.5));
 }
 
 uint8_t HaptiCapMagSettings::writeAll() {
@@ -442,7 +475,7 @@ uint8_t HaptiCapMagSettings::writeAll() {
 uint8_t HaptiCapMagSettings::readAll() {
     /** Read the values from the EEPROM memory into this settings object
 
-    @return Returns 0 on no error. Returns `EC_BAD_CHECKSUM` on invalid checksum.
+    @return Returns 0 on no error. Returns `EC_INVALID_CHECKSUM` on invalid checksum.
     */
 
     // Scalar settings
@@ -468,7 +501,7 @@ uint8_t HaptiCapMagSettings::readAll() {
     uint8_t checksum = calculateChecksum(sv);
 
     if (checksum != ochecksum) {
-        err_code = EC_BAD_CHECKSUM;
+        err_code = EC_INVALID_CHECKSUM;
     }
 
     return err_code;
@@ -494,6 +527,16 @@ void HaptiCapMagSettings::writeChecksum() {
     uint8_t cChecksum = readChecksum();
     if (checksum != cChecksum) {
         EEPROM.writeByte(HC_CHECKSUM_ADDR + base_addr, checksum);
+    }
+}
+
+void HaptiCapMagSettings::writeSettingsVersion() {
+    /** Writes the settings version of the current settings object to the EEPROM */
+
+    // Write the settings version to the EEPROM if it's not already written there.
+    uint8_t cSettingsVersion = readSettingsVersion();
+    if (cSettingsVersion != HC_SETTINGS_VERSION) {
+        EEPROM.writeByte(HC_VERSION_ADDR + base_addr, HC_SETTINGS_VERSION);
     }
 }
 
@@ -638,8 +681,8 @@ void HaptiCapMagSettings::writePinLoc(uint8_t motor) {
 
     int8_t cPinLoc = readPinLoc(motor);
 
-    if (pinLoc[motor] != cPinLoc) {
-        EEPROM.writeByte(HC_PINLOCS_ADDR + motor + base_addr, pinLoc[motor]);
+    if (pinLocs[motor] != cPinLoc) {
+        EEPROM.writeByte(HC_PINLOCS_ADDR + motor + base_addr, pinLocs[motor]);
     }
 }
 
@@ -655,6 +698,35 @@ void HaptiCapMagSettings::writeMotorCal(uint8_t motor) {
     if (motorCals[motor] != cMotorCal) {
         EEPROM.writeByte(HC_MOTORCAL_ADDR + motor + base_addr, motorCals[motor]);
     }
+}
+
+uint8_t HaptiCapMagSettings::readSettingsVersion() {
+    /** Read the settings version from the EEPROM memory.
+
+    The settings version is incremented whenever the file structure in the EEPROM memory changes,
+    and is stored alongside the file to allow for backwards compatibility when calculating the
+    checksum.
+
+    @return Returns the settings version
+    */
+
+    return EEPROM.readByte(HC_VERSION_ADDR + base_addr);
+}
+
+uint8_t HaptiCapMagSettings::readChecksum() {
+    /** Read the checksum from the EEPROM memory.
+
+    The checksum is used to ensure that `base_addr` points to a legitimate, non-corrupted EEPROM
+    file. This allows us to validate that this program (or an earlier version of it) wrote the
+    settings we are now reading. The checksum is not any sort of cryptographically strong hash, and
+    only uses a single byte, making deliberate collisions trivially simple to calculate, but this
+    should protect against accidentally overwriting the reserved section of memory, or
+    non-initialized settings files.
+
+    @return Returns the checksum
+    */
+
+    return EEPROM.readByte(HC_CHECKSUM_ADDR + base_addr);
 }
 
 float HaptiCapMagSettings::readDeclination() {
@@ -834,11 +906,11 @@ uint8_t HaptiCapMagSettings::calculateChecksum(uint8_t settings_version) {
     // Update the array settings - these are done in order, even though doing it in parallel would
     // only require a single loop.
     for (int i = 0; i < HC_MAX_NMOTORS; i++) {
-        crc = update_CRC8_float(pinLocs[i]);
+        crc = update_CRC8_float(crc, pinLocs[i]);
     }
 
     for (int i = 0; i < HC_MAX_NMOTORS; i++) {
-        crc = update_CRC8_float(motorCals[i]);
+        crc = update_CRC8_float(crc, motorCals[i]);
     }
 
     return crc;
@@ -850,6 +922,10 @@ uint8_t update_CRC8_byte(uint8_t crc, uint8_t b) {
     This is essentially a wrapper for `_crc8_ccitt_update()`, for symmetry with the other data types
     and to centralize all calls to the library function to make it easier to change the checksum
     algorithm later if necessary.
+    
+    The copy of avr-libc that comes with my version of Arduino does not contain
+    `_crc8_ccitt_update()` for whatever reason, so a call to that function has been replaced with
+    the C equivalent by Dave Hylands, per the documentation [here](http://www.nongnu.org/avr-libc/user-manual/group__util__crc.html#gab27eaaef6d7fd096bd7d57bf3f9ba083)
 
     @param[in] crc The existing CRC. Use `0x00` to initialize for simple CRC.
     @param[in] b The byte with which to update the CRC.
@@ -857,7 +933,17 @@ uint8_t update_CRC8_byte(uint8_t crc, uint8_t b) {
     @return Returns the updated checksum.
     */
 
-    return _crc8_ccitt_update(crc, b);
+    uint8_t data;
+    data = crc ^ b;
+    for (int i = 0; i < 8; i++ ) {
+        if (( data & 0x80 ) != 0 ) {
+            data <<= 1;
+            data ^= 0x07;
+        } else {
+            data <<= 1;
+        }
+    }
+    return data;
 }
 
 uint8_t update_CRC8_float(uint8_t crc, float f) {

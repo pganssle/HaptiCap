@@ -102,6 +102,8 @@ Error codes for the HaptiCapMagSettings
                                          Must be in range [0, 3]. */
 #define EC_INVALID_MOTOR 35         /*!< Specified motor is invalid. */
 #define EC_INVALID_DUTY_CYCLE 36    /*!< Specified duty cycle is outside the valid range [0, 1]. */
+#define EC_INVALID_SAMPLERATE 37    /*!< Sample rate must be < 160 Hz and > 0.75 Hz. */
+#define EC_INVALID_N_MOTORS 38      /*!< Number of motors cannot exceed HC_MAX_MOTORS (16) */
 /** @} */
 
 class HaptiCapMagSettings {
@@ -120,7 +122,7 @@ public:
     uint8_t getGain(void);
     uint8_t getAveraging(void);
 
-    uint8_t getPinLoc(uint8_t motor);
+    int8_t getPinLoc(uint8_t motor);
     uint8_t getMotorCal(uint8_t motor);
 
     uint8_t setDeclination(float declination);
@@ -132,7 +134,7 @@ public:
     uint8_t setUseCalibration(bool use);
     uint8_t setGain(uint8_t gain);
     uint8_t setAveraging(uint8_t avg_rate);
-    uint8_t setPinLoc(uint8_t motor, uint8_t pin_loc);
+    uint8_t setPinLoc(uint8_t motor, int8_t pin_loc);
     
     uint8_t setMotorCal(uint8_t motor, uint8_t motor_cal);
     uint8_t setMotorCal(uint8_t motor, float motor_cal);
@@ -145,7 +147,7 @@ public:
     uint8_t get_err_code(void);
     
 private:
-    uint16_t calculateChecksum(uint8_t settings_version=HC_SETTINGS_VERSION);
+    uint8_t calculateChecksum(uint8_t settings_version=HC_SETTINGS_VERSION);
 
     void writeChecksum(void);
     void writeSettingsVersion(void);
@@ -157,6 +159,7 @@ private:
     void writePhaseOffset(void);
     void writeUseCalibration(void);
     void writeGain(void);
+    void writeAveraging(void);
 
     void writePinLoc(uint8_t motor);
     void writeMotorCal(uint8_t motor);
@@ -171,6 +174,7 @@ private:
     float readPhaseOffset(void);
     bool readUseCalibration(void);
     uint8_t readGain(void);
+    uint8_t readAveraging(void);
 
     int8_t readPinLoc(uint8_t motor);
     uint8_t readMotorCal(uint8_t motor);

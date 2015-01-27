@@ -14,23 +14,32 @@ This code is released under a Creative Commons Attribution 4.0 International Lic
 */
 
 #include <Arduino.h>
+#include <EEPROMex.h>
 #include <Wire.h>
 #include <Vec3.h>
 #include <HMC5883L.h>
 #include <HaptiCapMagSettings.h>
+#include "HaptiCapCalibration.h"
 #include <tgmath>
 #include <stdlib.h>
 
 #define SETTINGS_LOC 0x00       /*!< The location of the settings file in EEPROM memory */
-
+ 
 #define SERIAL_BAUD_RATE 9600   /*!< The baud rate for the serial interface */
 #define STRING_BUFFER 128
+
+#define N_FUNCS 19
+#define FNAME_BUFF 25
+#define FARGS_BUFF 25
 
 /** @defgroup RunningModes Running modes
 These are flags for a set of partially non-exclusive running modes.
 @{ */
 #define HCM_RUN_MODE 0
-#define HCM_OUT_MODE 1
+#define HCM_DEBUG_MODE 1
+#define HCM_OUT_MODE 2
+#define HCM_CART_MODE 3
+
 /** @} */
 
 // Declare global variables
@@ -39,54 +48,28 @@ HaptiCapMagSettings settings;   /*!< Object which contains the settings for the 
 
 float motor_fracs[HC_MAX_NMOTORS];
 
-uint8_t cmotor = 8;               // Current active motor
-int8_t nCharsFound = 0;
+uint8_t cmotor = HC_MAX_NMOTORS+1;               // Current active motor
+uint8_t cdmotor = HC_MAX_NMOTORS+1;
+
+unsigned long cDelay = 100;
+
+boolean stringComplete = false;
+uint8_t nCharsFound = 0;
 char serialBuffer[STRING_BUFFER];
 
+boolean verbose = false;
 uint8_t mode = HCM_RUN_MODE;   /*!< The current running mode - defaults to running the compass. */
 
 void setup() {
     settings = HaptiCapMagSettings(SETTINGS_LOC);       // Create the settings object
-    uint8_t read_all_err = settings.readAll();
-
-    // If the checksum is invalid, initialize to the default value and set the mode to debug mode.
-    if (read_all_err) {
-        settings = HaptiCapMagSettings(SETTINGS_LOC);   // Generate a new object to get the defaults
-
-        mode = HCM_DEBUG_MODE;
-    }
 
     // Initialize the compass
     compass = HMC5883L();
     compass.initialize();
 
-    // Set up the initial averaging rate and sensor gain
-    compass.setAveragingRate(settings.getAveraging());     // 8 Averages per measurement
-    compass.setGain(settings.getGain());
-
-    if (settings.getUseCalibration()) {
-        compass.getCalibration(true);               // Calibrate the compass with the self test
+    if (reloadSettings()) {
+        mode = HCM_DEBUG_MODE;
     }
-
-    // Set the measurement mode to Idle (no measurements)
-    compass.setMeasurementMode(HMC_MeasurementIdle);
-
-    // Initialize the digital pin outs and store the motor pin locations
-    for (int i = 0; i < settings.getNMotors(); i++) {
-        int8_t pin = settings.getPinLoc(i);
-        motor_fracs[i] = settings.getMotorCal(i) / 255.0;   // Get motor calibrations as duty cycles
-        
-        // Skip unused motors.
-        if (pin < 0) {
-            continue;
-        }
-
-        // Set up the pins and initialize low
-        pinMode(pin, OUTPUT);
-        digitalWrite(pin, LOW);
-    }
-
-    cDelay = (unsigned long)(1.0/settings.getSampleRate() + 1); // Get sample delay, round up
 
     // Start the serial port
     Serial.begin(SERIAL_BAUD_RATE);
@@ -97,6 +80,10 @@ void loop() {
         update_compass();
     }
 
+    if (stringComplete) {
+        uint8_t ev = processFunction(serialBuffer);
+        stringComplete = false;
+    }
 }
 
 void serialEvent() {
@@ -109,8 +96,8 @@ void serialEvent() {
         } else {
             inChar = (char)Serial.read();
             // Get the new byte
-            inputString[nCharsFound++] = inChar;
-            inputString[nCharsFound] = '\0';        // Null terminate
+            serialBuffer[nCharsFound++] = inChar;
+            serialBuffer[nCharsFound] = '\0';        // Null terminate
         }
 
         // If the incoming line is a newline or ';', set a flag.
@@ -121,7 +108,219 @@ void serialEvent() {
     }
 }
 
-void update_compass() {
+uint8_t processFunction(char * funcString) {
+    /** Process function strings passed to the Arduino via the serial input
+    
+    @param[in] funcString The function string, including arguments. Valid commands are:
+        | Function          | Description                                      |
+        | :--------------:  | :----------------------------------------------- |
+        | `ToggleOutput()`  | Toggles whether or not to output the values      |
+        | `ToggleCompass()` | Toggles whether or not to run the haptic compass |
+        | `ToggleDebugMode()`| Toggles whether or not to run in debug mode     |
+        | `ToggleCartesianOutput()` | Toggles between cartesian and spherical coordinates in outputs |
+        | `ToggleVerboseMode()` | Toggles whether or not to run in verbose mode |
+        | `SetMotor(uint8_t motor)` | Set the selected motor running (with the current settings for its duty cycle |
+        | `SetDeclination(float declination)` | Set the current declination (East is negative) |
+        | `SetInclination(float inclination)` | Set the current inclination |
+        | `SetPulseWidth(uint16_t pulse_width)` | Set the pulse width for motor calibrations |
+        | `SetSampleRate(float sample_rate)` | Set the sample rate for the current settings object |
+        | `SetNMotors(uint8_t nMotors)` | Set the number of motors in the HaptiCap |
+        | `SetPhaseOffset(float phaseOffset)` | Set the phase offset for the current settings object |
+        | `SetGain(uint8_t gain)` | Set the gain for the settings object |
+        | `SetAvg(uint8_t rate) | Set the averaging rate for the settings object |
+        | `ToggleCalibration()` | Toggles whether or not to use the calibration. |
+        | `SetPinLoc(uint8_t motor, int8_t pin)` | Sets the digital output pin (`pin`) for a given motor (`motor`) |
+        | `SetMotorCal(uint8_t motor, uint8_t frac)` | Set motor calibration as a fraction of 255 |
+        | `SetMotorCalF(uint8_t motor, float frac)` | Set the motor calibration by fractional duty cycle [0, 1] |
+        | `WriteSettings()` | Write the current settings to the EEPROM |
+        | `ReloadSettings()` | Reload the settings from the EEPROM (or the default, if no settings are saved) |
+        | `OutputSettings()` | Prints to the serial port a breakdown of the current settings object | 
+    */
+    // Break this apart into functions and arguments
+    char func_match[FNAME_BUFF] = "";
+    char func_args[FARGS_BUFF] = "";
+
+    int i;      // Declare outside of loop because its final value is used when finding args
+    boolean func_arg_found = false;
+    for (i = 0; i < strlen(funcString); i++) {
+        if(funcString[i] == '(') {
+            func_match[i++] = '\0';     // Null terminate and increment i
+            func_arg_found = true;
+            break;
+        }
+        func_match[i] = funcString[i];   // Read into the buffer
+    }
+
+    // If an invalid function was passed, return an error.
+    if (!func_arg_found) {
+        return HCC_EC_MALFORMED_FUNC;
+    }
+
+    boolean func_arg_end_found = false;
+    uint8_t strPos = 0;
+    for (int j = 0; j < strlen(funcString)-i; j++) {
+        if (funcString[i+j] == ')') {
+            func_args[strPos] = '\0';
+            func_arg_end_found = true;
+            break;
+        } else if (funcString[i + j] == ' ' || funcString[i + j] == '\n' ||
+                   funcString[i + j] == '\t') {
+            continue;           // Skip over any whitespace.
+        }
+        func_args[strPos++] = funcString[i+j];  // Read into the buffer and update position
+    }
+
+    if (!func_arg_end_found) {
+        return HCC_EC_MALFORMED_ARGS;
+    }
+
+    // Determine which function it is so we can parse the arguments intelligently
+    char * func_names[N_FUNCS];
+    func_names[HCC_FD_TOG_OUTPUT] = "ToggleOutput";
+    func_names[HCC_FD_TOG_COMPASS] = "ToggleCompass";
+    func_names[HCC_FD_TOG_CART] = "ToggleCartesianOutput";
+    func_names[HCC_FD_TOG_VERBOSE] = "ToggleVerboseMode";
+    func_names[HCC_FD_TOG_DEBUG] = "ToggleDebugMode";
+    func_names[HCC_FD_SET_MOTOR] = "SetMotor";
+    func_names[HCC_FD_SET_DECL] = "SetDeclination";
+    func_names[HCC_FD_SET_INCL] = "SetInclination";
+    func_names[HCC_FD_SET_PW] = "SetPulseWidth";
+    func_names[HCC_FD_SET_SR] = "SetSampleRate";
+    func_names[HCC_FD_SET_NMOTORS] = "SetNMotors";
+    func_names[HCC_FD_SET_PHASE_OFF] = "SetPhaseOffset";
+    func_names[HCC_FD_SET_GAIN] = "SetGain";
+    func_names[HCC_FD_SET_AVG] = "SetAvg";
+    func_names[HCC_FD_TOG_CAL] = "ToggleCalibration";
+    func_names[HCC_FD_SET_PIN_LOC] = "SetPinLoc";
+    func_names[HCC_FD_SET_MCAL] = "SetMotorCal";
+    func_names[HCC_FD_SET_MCALF] = "SetMotorCalF";
+    func_names[HCC_FD_WRITE_SET] = "WriteSettings";
+    func_names[HCC_FD_RELOAD_SET] = "ReloadSettings";
+    func_names[HCC_FD_OUTPUT_SET] = "OutputSettings";
+
+    // Test for a valid function
+    int cFunc = -1;
+    for (i = 0; i < N_FUNCS; i++) {
+        if (strcmp(func_match, func_names[i]) == 0) {
+            cFunc = i;
+            break;
+        }
+    }
+
+    if (cFunc < 0) {
+        return HCC_EC_UNKNOWN_FUNCTION;
+    }
+
+    // Parse arguments
+    switch (cFunc) {
+        // First the cases with no arguments to parse - just run them.
+        case HCC_FD_TOG_OUTPUT:
+            return toggleOutput();
+        case HCC_FD_TOG_COMPASS:
+            return toggleCompass();
+        case HCC_FD_TOG_DEBUG:
+            return toggleDebugMode();
+        case HCC_FD_TOG_CAL:
+            return toggleCalibration();
+        case HCC_FD_WRITE_SET:
+            return writeSettings();
+        case HCC_FD_RELOAD_SET:
+            return reloadSettings();
+        case HCC_FD_OUTPUT_SET:
+            return outputSettings();
+        case HCC_FD_TOG_CART:
+            return toggleCartesianOutput();
+        case HCC_FD_TOG_VERBOSE:
+            return toggleVerbose();
+
+        // Now the oddball cases with unique arguments
+        case HCC_FD_SET_PIN_LOC:
+        case HCC_FD_SET_MCAL:
+            int8_t int1, int2;
+            if (sscanf(func_args, "%d,%d", &int1, &int2) < 2) {
+                return HCC_EC_INVALID_FARG;
+            }
+
+            if (int1 < 0) {
+                return HCC_EC_INVALID_UINT;
+            }
+
+            if (cFunc == HCC_FD_SET_PIN_LOC) {
+                return setPinLoc(int1, int2);
+            } else if (cFunc == HCC_FD_SET_MCAL) {
+                if (int2 < 0) {
+                    return HCC_EC_INVALID_UINT;
+                }
+                return setMotorCal(int1, int2);
+            }
+
+        case HCC_FD_SET_MCALF:
+            int8_t motor;
+            float dc;
+            if (sscanf(func_args, "%d,%f", &motor, &dc) < 2) {
+                return HCC_EC_INVALID_FARG;
+            }
+
+            if (motor < 0) {
+                return HCC_EC_INVALID_UINT;
+            }
+
+            return setMotorCalFloat(motor, dc);
+
+
+        // Next the cases with one uint argument
+        case HCC_FD_SET_MOTOR:
+        case HCC_FD_SET_PW:
+        case HCC_FD_SET_NMOTORS:
+        case HCC_FD_SET_GAIN:
+        case HCC_FD_SET_AVG:
+            int int_arg;
+            if (!sscanf(func_args, "%d", &int_arg)) {
+                return HCC_EC_INVALID_FARG;
+            }
+
+            if (int_arg < 0) {
+                return HCC_EC_INVALID_UINT;
+            }
+
+            if (cFunc == HCC_FD_SET_MOTOR) {
+                return setDebugMotor(int_arg);
+            } else if (cFunc == HCC_FD_SET_PW) {
+                return setPulseWidth(int_arg);
+            } else if (cFunc == HCC_FD_SET_NMOTORS) {
+                return setNMotors(int_arg);
+            } else if (cFunc == HCC_FD_SET_GAIN) {
+                return setGain(int_arg);
+            } else if (cFunc == HCC_FD_SET_AVG) {
+                return setAvg(int_arg);
+            }
+
+        // Now the cases that take a single float
+        case HCC_FD_SET_DECL:
+        case HCC_FD_SET_INCL:
+        case HCC_FD_SET_SR:
+        case HCC_FD_SET_PHASE_OFF:
+            float float_arg;
+            if (!sscanf(func_args, "%f", &float_arg)) {
+                return HCC_EC_INVALID_FARG;
+            }
+
+            if (cFunc == HCC_FD_SET_DECL) {
+                return setDeclination(float_arg);
+            } else if (cFunc == HCC_FD_SET_INCL) {
+                return setInclination(float_arg);
+            } else if (cFunc == HCC_FD_SET_SR) {
+                return setSampleRate(float_arg);
+            } else if (cFunc == HCC_FD_SET_PHASE_OFF) {
+                return setPhaseOffset(float_arg);
+            }
+    }
+
+
+
+}
+
+uint8_t update_compass() {
     /** The main loop function run when in compass run mode. */
 
     // Set the compass to the task of measuring. Must wait at least 6.25 ms.
@@ -150,14 +349,14 @@ void update_compass() {
 
     // Read the calibrated sensor values from the compass
     uint8_t saturated;
-    Vec3<float> values = compass.readCalibratedValues();
+    Vec3<float> values = compass.readCalibratedValues(NULL);
 
     // The sensor is upside-down, so invert the x and z axes.
     values.x = -values.x;
     values.z = -values.z;           // Not strictly necessary, as this is currently unused.
 
     // Figure out which motor is facing north.
-    float north = calc_north(values.x, values.y, values.z);
+    float north = calc_north(values.x, values.y, settings.getDeclination());
     uint8_t motor = select_motor(north);
 
     // If the motor is different, set the new one buzzing.
@@ -168,6 +367,8 @@ void update_compass() {
     if (mode & HCM_OUT_MODE) {
         output_vector_cart_serial(values);
     }
+
+    return 0;
 }
 
 //
@@ -182,7 +383,7 @@ void output_vector_cart_serial(Vec3<float> value) {
     @param[in] value The value to output.
     */
 
-    char[10] strBuff;
+    char strBuff[10];
 
     Serial.print("##");       // Starts an output line, just my personal convention
 
@@ -208,7 +409,7 @@ void output_vector_cart_serial(Vec3<float> value) {
         Serial.print("+");
     }
     Serial.print(strBuff);
-    Serial.print("\n")
+    Serial.print("\n");
 }
 
 void output_vector_spherical_serial(Vec3<float> value) {
@@ -221,17 +422,17 @@ void output_vector_spherical_serial(Vec3<float> value) {
     */
 
     // Convert to r, theta, phi.
-    float r, theta phi;
+    float r, theta, phi;
     r = sqrt(pow(value.x, 2) + pow(value.y, 2) + pow(value.z, 2));
     theta = atan2(value.y, value.x) * 180 / M_PI;
-    phi = acos(z/r) * 180 / M_PI;
+    phi = acos(value.z/r) * 180 / M_PI;
 
 
-    char[10] strBuff;
+    char strBuff[10];
 
     Serial.print("##");       // Starts an output line, just my personal convention
 
-    // x value
+    // r value
     dtostrf(r, 4, 2, strBuff);
     if (r >= 0.0) {
         Serial.print("+");
@@ -239,7 +440,7 @@ void output_vector_spherical_serial(Vec3<float> value) {
     Serial.print(strBuff);
     Serial.print(", ");
 
-    // y value
+    // theta value
     dtostrf(theta, 3, 2, strBuff);
     if (theta >= 0.0) {
         Serial.print("+");
@@ -247,13 +448,13 @@ void output_vector_spherical_serial(Vec3<float> value) {
     Serial.print(strBuff);
     Serial.print(", ");
 
-     // z value
+     // phi value
     dtostrf(phi, 3, 2, strBuff);
     if (phi >= 0.0) {
         Serial.print("+");
     }
     Serial.print(strBuff);
-    Serial.print("\n")
+    Serial.print("\n");
 }
 
 //
@@ -283,15 +484,15 @@ void change_motor(uint8_t motor) {
     @param[in] motor The new selected motor
     */
     
-    if (cmotor < N_MOTORS) {
+    if (cmotor < settings.getNMotors()) {
         set_motor(cmotor, LOW);
     }
 
-    if(motor < N_MOTORS) {
+    if(motor < settings.getNMotors()) {
         set_motor(motor, HIGH);
     }
 
-    cmotor = motor; ,
+    cmotor = motor;
 }
 
 void set_motor(uint8_t motor, bool h_low) {
@@ -301,7 +502,7 @@ void set_motor(uint8_t motor, bool h_low) {
     @param[in] h_low The new state of the motor
     */
 
-    if (motor > N_MOTORS) {
+    if (motor > settings.getNMotors()) {
         return;
     }
 
@@ -326,5 +527,121 @@ float calc_north(float x, float y, float decl) {
         north += 360.0;
     }
 
-    return north + declination;
+    return north + decl;
+}
+
+// Functions run by the user over serial ports
+uint8_t toggleOutput() {
+    mode ^= HCM_OUT_MODE;       // Exclusive OR on the output mode bit.
+
+    return 0;
+}
+
+uint8_t toggleCompass() {
+    mode ^= HCM_RUN_MODE;               // Toggle running mode
+    
+    // Turn off debugging mode if running mode is on
+    if (mode & HCM_RUN_MODE) {
+        mode &= 0xff - HCM_DEBUG_MODE;
+        if (verbose) {
+            Serial.println("Running mode enabled.");
+        }
+    } else if (verbose) {
+        Serial.println("Running mode disabled.");
+    }
+
+    return 0;
+}
+
+uint8_t toggleDebugMode() {
+    mode ^= HCM_DEBUG_MODE;             // Toggle debug mode
+
+    // Turn off running mode if debug mode is on
+    if (mode & HCM_DEBUG_MODE) {
+        mode &= 0xff - HCM_RUN_MODE;
+    }
+
+    if (verbose) {
+        Serial.print("Debug mode ");
+        Serial.print((mode & HCM_DEBUG_MODE)?"enabled":"disabled");
+        Serial.println(".");
+    }
+    return 0;
+}
+
+uint8_t toggleCalibration() {
+    boolean useCalibration = !settings.getUseCalibration();
+    if (verbose) {
+        Serial.print("Calibration ");
+        Serial.print(useCalibration?"will":"will not");
+        Serial.println(" be used.");
+    }
+
+    if (useCalibration) {
+        compass.getCalibration(true);   // Make sure the calibration is valid.
+    }
+
+    return settings.setUseCalibration(useCalibration);
+}
+
+uint8_t toggleVerbose() {
+    verbose = !verbose;
+    if (verbose) {
+        Serial.println("Setting mode to verbose.");
+    }
+    return 0;
+}
+
+uint8_t toggleCartesianOutput() {
+    mode ^= HCM_CART_MODE;      // Toggle cartesian mode
+
+    if (verbose) {
+        Serial.print("Cartesian output mode ");
+        Serial.println((mode & HCM_CART_MODE)?"enabled":"disabled");
+    }
+}
+
+uint8_t writeSettings() {
+    if (verbose) {
+        Serial.println("Writing settings to EEPROM");
+    }
+
+    return settings.writeAll();
+}
+
+uint8_t reloadSettings() {
+    uint8_t read_all_err = settings.readAll();
+
+    if (read_all_err) {
+        settings = HaptiCapMagSettings(SETTINGS_LOC);
+    }
+    // Set up the initial averaging rate and sensor gain
+    compass.setAveragingRate(settings.getAveraging());     // 8 Averages per measurement
+    compass.setGain(settings.getGain());
+
+    if (settings.getUseCalibration()) {
+        compass.getCalibration(true);               // Calibrate the compass with the self test
+    }
+
+    // Set the measurement mode to Idle (no measurements)
+    compass.setMeasurementMode(HMC_MeasurementIdle);
+
+    // Initialize the digital pin outs and store the motor pin locations
+    for (int i = 0; i < settings.getNMotors(); i++) {
+        int8_t pin = settings.getPinLoc(i);
+        motor_fracs[i] = settings.getMotorCal(i) / 255.0;   // Get motor calibrations as duty cycles
+        
+        // Skip unused motors.
+        if (pin < 0) {
+            continue;
+        }
+
+        // Set up the pins and initialize low
+        pinMode(pin, OUTPUT);
+        digitalWrite(pin, LOW);
+    }
+
+    cDelay = (unsigned long)(1.0/settings.getSampleRate() + 1); // Get sample delay, round up
+
+    return read_all_err;
 }
