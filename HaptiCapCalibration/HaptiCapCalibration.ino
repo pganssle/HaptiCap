@@ -32,17 +32,6 @@ This code is released under a Creative Commons Attribution 4.0 International Lic
 #define FARGS_BUFF 32
 #define STRING_BUFFER FNAME_BUFF+FARGS_BUFF+4
 
-/** @defgroup RunningModes Running modes
-These are flags for a set of partially non-exclusive running modes.
-@{ */
-#define HCM_RUN_MODE 0
-#define HCM_DEBUG_MODE 1
-#define HCM_DEBUG_OSC_MODE 2
-#define HCM_OUT_MODE 4
-#define HCM_CART_MODE 8
-
-/** @} */
-
 // Declare global variables
 HMC5883L compass;               /*!< Interface to the HMC5883L magnetometer */
 HaptiCapMagSettings settings;   /*!< Object which contains the settings for the run */
@@ -59,8 +48,17 @@ boolean stringComplete = false;
 uint8_t nCharsFound = 0;
 char serialBuffer[STRING_BUFFER];
 
+// Mode flags
+/** @defgroup RunningModes Running modes
+These are flags for a set of partially non-exclusive running modes.
+@{ */
+boolean running = true;
+boolean debugging = false;
+boolean debug_oscillates = false;
 boolean verbose = false;
-uint8_t mode = HCM_RUN_MODE;   /*!< The current running mode - defaults to running the compass. */
+boolean output_mag = false;
+boolean output_cart = true;
+/** @} */
 
 void setup() {
     settings = HaptiCapMagSettings(SETTINGS_LOC);       // Create the settings object
@@ -71,7 +69,8 @@ void setup() {
 
     if (reloadSettings()) {
         settings = HaptiCapMagSettings(SETTINGS_LOC);
-        mode = HCM_DEBUG_MODE;
+        running = false;
+        debugging = true;
     }
 
     // Start the serial port
@@ -81,11 +80,9 @@ void setup() {
 }
 
 void loop() {
-    if (mode & HCM_RUN_MODE) {
+    if (running) {
         update_compass();
-    }
-
-    if (mode & HCM_DEBUG_MODE) {
+    } else if (debugging) {
         update_debug();
     }
 
@@ -380,8 +377,8 @@ uint8_t update_compass() {
         change_motor(motor, &cmotor);
     }
 
-    if (mode & HCM_OUT_MODE) {
-        if (mode & HCM_CART_MODE) {
+    if (output_mag) {
+        if (output_cart) {
             output_vector_cart_serial(values);
         } else {
             output_vector_spherical_serial(values);
@@ -393,7 +390,7 @@ uint8_t update_compass() {
 
 void update_debug() {
     /** The main loop when running in debug mode */
-    if (mode & HCM_DEBUG_OSC_MODE) {
+    if (debug_oscillates) {
         run_motor(cdmotor, debugOscillation, settings.getPulseWidth(), motor_fracs[cdmotor]);
         change_motor(cdmotor+1 % settings.getNMotors(), &cdmotor);
     } else {
@@ -585,48 +582,49 @@ float calc_north(float x, float y, float decl) {
 
 // Functions run by the user over serial ports
 uint8_t toggleOutput() {
-    mode ^= HCM_OUT_MODE;       // Exclusive OR on the output mode bit.
+    output_mag = !output_mag;
+
+    if (verbose) {
+        Serial.print("Output mode: ");
+        Serial.print(output_mag?"enabled":"disabled");
+        Serial.println(".");
+    }
 
     return 0;
 }
 
 uint8_t toggleCompass() {
-    mode ^= HCM_RUN_MODE;               // Toggle running mode
-    
-    // Turn off debugging mode if running mode is on
-    if (mode & HCM_RUN_MODE) {
-        if (mode & HCM_DEBUG_MODE) {
-            set_motor(cdmotor, LOW);        // Turn off the currently running motor
+    running = !running;
 
-            mode &= 0xff - HCM_DEBUG_MODE;
-        }
-        if (verbose) {
-            Serial.println("Running mode enabled.");
-        }
-    } else if (verbose) {
-        Serial.println("Running mode disabled.");
+    if (running && debugging) {
+        set_motor(cdmotor, LOW);
+        debugging = false;
+    }
+    
+
+    if (verbose) {
+        Serial.print("Running mode: ");
+        Serial.print(running?"enabled":"disabled");
+        Serial.println(".");
     }
 
     return 0;
 }
 
 uint8_t toggleDebugMode() {
-    mode ^= HCM_DEBUG_MODE;             // Toggle debug mode
+    debugging = !debugging;
 
-    // Turn off running mode if debug mode is on
-    if (mode & HCM_DEBUG_MODE) {
-        if (mode & HCM_RUN_MODE) {
-            // Turn off the currently running motor
-            set_motor(cmotor, LOW);
-            mode &= 0xff - HCM_RUN_MODE;
-        }
+    if (debugging && running) {
+        set_motor(cmotor, LOW);
+        running = false;
     }
 
     if (verbose) {
-        Serial.print("Debug mode ");
-        Serial.print((mode & HCM_DEBUG_MODE)?"enabled":"disabled");
+        Serial.print("Debugging mode: ");
+        Serial.print(debugging?"enabled":"disabled");
         Serial.println(".");
     }
+
     return 0;
 }
 
@@ -654,11 +652,11 @@ uint8_t toggleVerbose() {
 }
 
 uint8_t toggleCartesianOutput() {
-    mode ^= HCM_CART_MODE;      // Toggle cartesian mode
+    output_cart = !output_cart;
 
     if (verbose) {
         Serial.print("Cartesian output mode ");
-        Serial.println((mode & HCM_CART_MODE)?"enabled":"disabled");
+        Serial.println(output_cart?"enabled":"disabled");
     }
 }
 
@@ -808,17 +806,22 @@ uint8_t setDebugMotor(uint8_t motor) {
     */
 
     // Turn off oscillation if you're setting the motor manually
-    mode &= 0xff - HCM_DEBUG_OSC_MODE;
+    debug_oscillates = false;
 
     change_motor(motor, &cdmotor);
+
+    if (verbose) {
+        Serial.print("Setting debugging motor to: ");
+        Serial.println(int(motor));
+    }
     return 0;
 }
 
 uint8_t setDebugOscillation(uint32_t delay_time) {
     /** Oscillate between the different motors in debug mode. */
     debugOscillation = delay_time;
-    mode |= HCM_DEBUG_OSC_MODE;
 
+    debug_oscillates = true;
     return 0;
 }
 
