@@ -3,7 +3,7 @@
 
 #include <Vec3.h>
 
-#define N_FUNCS 21
+#define N_FUNCS 25
 #define HCC_FD_TOG_OUTPUT 0
 #define HCC_FD_TOG_COMPASS 1
 #define HCC_FD_TOG_DEBUG 2
@@ -25,6 +25,10 @@
 #define HCC_FD_OUTPUT_SET 18
 #define HCC_FD_TOG_CART 19
 #define HCC_FD_TOG_VERBOSE 20
+#define HCC_FD_SET_ALL_PL 21
+#define HCC_FD_SET_ALL_MCAL 22
+#define HCC_FD_SET_ALL_MCALF 23
+#define HCC_FD_SET_D_OSC 24
 
 #define HCC_EC_MALFORMED_FUNC 64
 #define HCC_EC_MALFORMED_ARGS 65
@@ -40,12 +44,13 @@ void serialEvent(void);
 uint8_t processFunction(char * funcString);
 
 uint8_t update_compass(void);
+void update_debug(void);
 
 void output_vector_cart_serial(Vec3<float> value);
 void output_vector_spherical_serial(Vec3<float> value);
 
 uint8_t select_motor(float phi);
-void change_motor(uint8_t motor);
+void change_motor(uint8_t motor, uint8_t * old_motor);
 void set_motor(uint8_t motor, bool h_low);
 float calc_north(float x, float y, float decl);
 
@@ -61,9 +66,10 @@ uint8_t toggleVerbose();
 
 uint8_t setPinLoc(uint8_t motor, int8_t pin);
 uint8_t setMotorCal(uint8_t motor, uint8_t frac);
-uint8_t setMotorCalFloat(uint8_t motor, float frac);
 
 uint8_t setDebugMotor(uint8_t motor);
+uint8_t setDebugOscillation(uint32_t delay_time);
+
 uint8_t setPulseWidth(uint16_t pulse_width);
 uint8_t setNMotors(uint8_t nMotors);
 uint8_t setGain(uint8_t gain);
@@ -73,5 +79,8 @@ uint8_t setDeclination(float decl);
 uint8_t setInclination(float incl);
 uint8_t setSampleRate(float sr);
 uint8_t setPhaseOffset(float phi);
+
+uint8_t setAllPinLocs(uint8_t pin_start, int8_t pin_increment);
+uint8_t setAllMotorCals(uint8_t motor_frac);
 
 #endif

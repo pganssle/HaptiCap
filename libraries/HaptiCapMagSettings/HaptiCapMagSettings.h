@@ -145,9 +145,11 @@ public:
 
     // Error handling
     uint8_t get_err_code(void);
-    
-private:
+
     uint8_t calculateChecksum(uint8_t settings_version=HC_SETTINGS_VERSION);
+    uint8_t readChecksum(void);    
+
+private:
 
     void writeChecksum(void);
     void writeSettingsVersion(void);
@@ -164,7 +166,6 @@ private:
     void writePinLoc(uint8_t motor);
     void writeMotorCal(uint8_t motor);
 
-    uint8_t readChecksum(void);
     uint8_t readSettingsVersion(void);
     float readDeclination(void);
     float readInclination(void);

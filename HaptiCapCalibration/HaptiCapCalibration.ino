@@ -26,19 +26,20 @@ This code is released under a Creative Commons Attribution 4.0 International Lic
 #define SETTINGS_LOC 0x00       /*!< The location of the settings file in EEPROM memory */
  
 #define SERIAL_BAUD_RATE 9600   /*!< The baud rate for the serial interface */
-#define STRING_BUFFER 128
 
 #define N_FUNCS 19
-#define FNAME_BUFF 25
-#define FARGS_BUFF 25
+#define FNAME_BUFF 32
+#define FARGS_BUFF 32
+#define STRING_BUFFER FNAME_BUFF+FARGS_BUFF+4
 
 /** @defgroup RunningModes Running modes
 These are flags for a set of partially non-exclusive running modes.
 @{ */
 #define HCM_RUN_MODE 0
 #define HCM_DEBUG_MODE 1
-#define HCM_OUT_MODE 2
-#define HCM_CART_MODE 3
+#define HCM_DEBUG_OSC_MODE 2
+#define HCM_OUT_MODE 4
+#define HCM_CART_MODE 8
 
 /** @} */
 
@@ -52,6 +53,7 @@ uint8_t cmotor = HC_MAX_NMOTORS+1;               // Current active motor
 uint8_t cdmotor = HC_MAX_NMOTORS+1;
 
 unsigned long cDelay = 100;
+unsigned long debugOscillation = 1000;
 
 boolean stringComplete = false;
 uint8_t nCharsFound = 0;
@@ -68,11 +70,14 @@ void setup() {
     compass.initialize();
 
     if (reloadSettings()) {
+        settings = HaptiCapMagSettings(SETTINGS_LOC);
         mode = HCM_DEBUG_MODE;
     }
 
     // Start the serial port
     Serial.begin(SERIAL_BAUD_RATE);
+    
+    Serial.println("Program initialized.");
 }
 
 void loop() {
@@ -80,8 +85,19 @@ void loop() {
         update_compass();
     }
 
+    if (mode & HCM_DEBUG_MODE) {
+        update_debug();
+    }
+
     if (stringComplete) {
+        Serial.print("Processing function: ");
+        Serial.println(serialBuffer);
         uint8_t ev = processFunction(serialBuffer);
+
+        if (ev) {
+            Serial.print("Error, Code ");
+            Serial.println(ev);
+        }
         stringComplete = false;
     }
 }
@@ -100,8 +116,8 @@ void serialEvent() {
             serialBuffer[nCharsFound] = '\0';        // Null terminate
         }
 
-        // If the incoming line is a newline or ';', set a flag.
-        if(inChar == '\n' || inChar == ';') {
+        // If the incoming line is ';', set a flag.
+        if(inChar == ';') {
             stringComplete = true;
             nCharsFound = 0;
         }
@@ -135,6 +151,11 @@ uint8_t processFunction(char * funcString) {
         | `WriteSettings()` | Write the current settings to the EEPROM |
         | `ReloadSettings()` | Reload the settings from the EEPROM (or the default, if no settings are saved) |
         | `OutputSettings()` | Prints to the serial port a breakdown of the current settings object | 
+        | `SetAllPinLocs(uint8_t pin_start, int8_t pin_increment)` | Set all pin locations as an increasing or decreasing function |
+        | `SetAllMotorCals(uint8_t frac)` | Set all motor calibrations to the same thing |
+        | `SetAllMotorCalsF(float frac)` | Set all motor calibrations to the same thing |
+        | `SetOscillation(uint32_t delay_time)` | Oscillate between the motors with delay delay_time |
+
     */
     // Break this apart into functions and arguments
     char func_match[FNAME_BUFF] = "";
@@ -175,36 +196,36 @@ uint8_t processFunction(char * funcString) {
     }
 
     // Determine which function it is so we can parse the arguments intelligently
-    char * func_names[N_FUNCS];
-    func_names[HCC_FD_TOG_OUTPUT] = "ToggleOutput";
-    func_names[HCC_FD_TOG_COMPASS] = "ToggleCompass";
-    func_names[HCC_FD_TOG_CART] = "ToggleCartesianOutput";
-    func_names[HCC_FD_TOG_VERBOSE] = "ToggleVerboseMode";
-    func_names[HCC_FD_TOG_DEBUG] = "ToggleDebugMode";
-    func_names[HCC_FD_SET_MOTOR] = "SetMotor";
-    func_names[HCC_FD_SET_DECL] = "SetDeclination";
-    func_names[HCC_FD_SET_INCL] = "SetInclination";
-    func_names[HCC_FD_SET_PW] = "SetPulseWidth";
-    func_names[HCC_FD_SET_SR] = "SetSampleRate";
-    func_names[HCC_FD_SET_NMOTORS] = "SetNMotors";
-    func_names[HCC_FD_SET_PHASE_OFF] = "SetPhaseOffset";
-    func_names[HCC_FD_SET_GAIN] = "SetGain";
-    func_names[HCC_FD_SET_AVG] = "SetAvg";
-    func_names[HCC_FD_TOG_CAL] = "ToggleCalibration";
-    func_names[HCC_FD_SET_PIN_LOC] = "SetPinLoc";
-    func_names[HCC_FD_SET_MCAL] = "SetMotorCal";
-    func_names[HCC_FD_SET_MCALF] = "SetMotorCalF";
-    func_names[HCC_FD_WRITE_SET] = "WriteSettings";
-    func_names[HCC_FD_RELOAD_SET] = "ReloadSettings";
-    func_names[HCC_FD_OUTPUT_SET] = "OutputSettings";
-
-    // Test for a valid function
+    // The Arduino Nano cannot hold all these in memory at once, so I'm going to try to compare them one by one.
     int cFunc = -1;
-    for (i = 0; i < N_FUNCS; i++) {
-        if (strcmp(func_match, func_names[i]) == 0) {
-            cFunc = i;
-            break;
-        }
+    if (strncmp(func_match, "Toggle", 6) == 0) {
+        if (strcmp(func_match, "ToggleOutput") == 0) { cFunc = HCC_FD_TOG_OUTPUT; }
+        else if (strcmp(func_match, "ToggleCompass") == 0) { cFunc = HCC_FD_TOG_COMPASS; }
+        else if (strcmp(func_match, "ToggleCartesianOutput") == 0) { cFunc = HCC_FD_TOG_CART; }
+        else if (strcmp(func_match, "ToggleVerboseMode") == 0) { cFunc = HCC_FD_TOG_VERBOSE; }
+        else if (strcmp(func_match, "ToggleDebugMode") == 0) { cFunc = HCC_FD_TOG_DEBUG; }
+        else if (strcmp(func_match, "ToggleCalibration") == 0) { cFunc = HCC_FD_TOG_CAL; }
+    } else if (strncmp(func_match, "Set", 3) == 0) {
+        if (strcmp(func_match, "SetMotor") == 0) { cFunc = HCC_FD_SET_MOTOR; }
+        else if (strcmp(func_match, "SetDeclination") == 0) { cFunc = HCC_FD_SET_DECL; }  
+        else if (strcmp(func_match, "SetInclination") == 0) { cFunc = HCC_FD_SET_INCL; }  
+        else if (strcmp(func_match, "SetPulseWidth") == 0) { cFunc = HCC_FD_SET_PW; }  
+        else if (strcmp(func_match, "SetSampleRate") == 0) { cFunc = HCC_FD_SET_SR; }  
+        else if (strcmp(func_match, "SetNMotors") == 0) { cFunc = HCC_FD_SET_NMOTORS; }  
+        else if (strcmp(func_match, "SetPhaseOffset") == 0) { cFunc = HCC_FD_SET_PHASE_OFF; }  
+        else if (strcmp(func_match, "SetGain") == 0) { cFunc = HCC_FD_SET_GAIN; }  
+        else if (strcmp(func_match, "SetAvg") == 0) { cFunc = HCC_FD_SET_AVG; }  
+        else if (strcmp(func_match, "SetPinLoc") == 0) { cFunc = HCC_FD_SET_PIN_LOC; }  
+        else if (strcmp(func_match, "SetMotorCal") == 0) { cFunc = HCC_FD_SET_MCAL; }  
+        else if (strcmp(func_match, "SetMotorCalF") == 0) { cFunc = HCC_FD_SET_MCALF; }  
+        else if (strcmp(func_match, "SetOscillation") == 0) { cFunc = HCC_FD_SET_D_OSC; }  
+        else if (strcmp(func_match, "SetAllPinLocs") == 0) { cFunc = HCC_FD_SET_ALL_PL; }  
+        else if (strcmp(func_match, "SetAllMotorCals") == 0) { cFunc = HCC_FD_SET_ALL_MCAL; }  
+        else if (strcmp(func_match, "SetAllMotorCalsF") == 0) { cFunc = HCC_FD_SET_ALL_MCALF; }
+    } else {
+        if (strcmp(func_match, "WriteSettings") == 0) { cFunc = HCC_FD_WRITE_SET; }
+        else if (strcmp(func_match, "ReloadSettings") == 0) { cFunc = HCC_FD_RELOAD_SET; }
+        else if (strcmp(func_match, "OutputSettings") == 0) { cFunc = HCC_FD_OUTPUT_SET; }
     }
 
     if (cFunc < 0) {
@@ -212,6 +233,7 @@ uint8_t processFunction(char * funcString) {
     }
 
     // Parse arguments
+    int int_arg;
     switch (cFunc) {
         // First the cases with no arguments to parse - just run them.
         case HCC_FD_TOG_OUTPUT:
@@ -235,6 +257,7 @@ uint8_t processFunction(char * funcString) {
 
         // Now the oddball cases with unique arguments
         case HCC_FD_SET_PIN_LOC:
+        case HCC_FD_SET_ALL_PL:
         case HCC_FD_SET_MCAL:
             int8_t int1, int2;
             if (sscanf(func_args, "%d,%d", &int1, &int2) < 2) {
@@ -247,7 +270,9 @@ uint8_t processFunction(char * funcString) {
 
             if (cFunc == HCC_FD_SET_PIN_LOC) {
                 return setPinLoc(int1, int2);
-            } else if (cFunc == HCC_FD_SET_MCAL) {
+            } else if(cFunc == HCC_FD_SET_ALL_PL) {
+                return setAllPinLocs(int1, int2);
+            }else if (cFunc == HCC_FD_SET_MCAL) {
                 if (int2 < 0) {
                     return HCC_EC_INVALID_UINT;
                 }
@@ -265,7 +290,7 @@ uint8_t processFunction(char * funcString) {
                 return HCC_EC_INVALID_UINT;
             }
 
-            return setMotorCalFloat(motor, dc);
+            return setMotorCal(motor, dc);
 
 
         // Next the cases with one uint argument
@@ -274,7 +299,8 @@ uint8_t processFunction(char * funcString) {
         case HCC_FD_SET_NMOTORS:
         case HCC_FD_SET_GAIN:
         case HCC_FD_SET_AVG:
-            int int_arg;
+        case HCC_FD_SET_ALL_MCAL:
+        case HCC_FD_SET_D_OSC:
             if (!sscanf(func_args, "%d", &int_arg)) {
                 return HCC_EC_INVALID_FARG;
             }
@@ -293,6 +319,10 @@ uint8_t processFunction(char * funcString) {
                 return setGain(int_arg);
             } else if (cFunc == HCC_FD_SET_AVG) {
                 return setAvg(int_arg);
+            } else if (cFunc == HCC_FD_SET_ALL_MCAL) {
+                return setAllMotorCals(uint8_t(int_arg));
+            } else if (cFunc == HCC_FD_SET_D_OSC) {
+                return setDebugOscillation(int_arg);
             }
 
         // Now the cases that take a single float
@@ -300,10 +330,13 @@ uint8_t processFunction(char * funcString) {
         case HCC_FD_SET_INCL:
         case HCC_FD_SET_SR:
         case HCC_FD_SET_PHASE_OFF:
+        case HCC_FD_SET_ALL_MCALF:
             float float_arg;
-            if (!sscanf(func_args, "%f", &float_arg)) {
+            if (!sscanf(func_args, "%d", &int_arg)) {
                 return HCC_EC_INVALID_FARG;
             }
+
+            float_arg = float(int_arg)/1000;
 
             if (cFunc == HCC_FD_SET_DECL) {
                 return setDeclination(float_arg);
@@ -313,6 +346,8 @@ uint8_t processFunction(char * funcString) {
                 return setSampleRate(float_arg);
             } else if (cFunc == HCC_FD_SET_PHASE_OFF) {
                 return setPhaseOffset(float_arg);
+            } else if (cFunc == HCC_FD_SET_ALL_MCALF) {
+                return setAllMotorCals(float_arg);
             }
     }
 
@@ -326,26 +361,7 @@ uint8_t update_compass() {
     // Set the compass to the task of measuring. Must wait at least 6.25 ms.
     compass.setMeasurementMode(HMC_MeasurementSingle);
 
-    // If we're on a motor with a fractional duty cycle, set up a PWM cycle.
-    // Try to use a sufficiently short fractional subunit to avoid perceptible
-    // pulsation.
-    if (cmotor < 8 && motor_fracs[cmotor] < 1.0) {
-        // Calculate the number of pulseWidth units make up the sampling period.
-        unsigned long delay_decimation = cDelay/settings.getPulseWidth();
-
-        float off_delay = cDelay*(1-motor_fracs[cmotor]) / delay_decimation;
-        float on_delay = cDelay*motor_fracs[cmotor] / delay_decimation;
-
-        for(int i = 0; i < delay_decimation; i++) {
-            set_motor(cmotor, LOW);
-            delay(off_delay);
-
-            set_motor(cmotor, HIGH);
-            delay(on_delay);
-        }
-    } else {
-        delay(cDelay);              // Wait the sampling period before reading the values.
-    }
+    run_motor(cmotor, cDelay, settings.getPulseWidth(), motor_fracs[cmotor]);
 
     // Read the calibrated sensor values from the compass
     uint8_t saturated;
@@ -361,14 +377,51 @@ uint8_t update_compass() {
 
     // If the motor is different, set the new one buzzing.
     if (motor != cmotor) {
-        change_motor(motor);
+        change_motor(motor, &cmotor);
     }
 
     if (mode & HCM_OUT_MODE) {
-        output_vector_cart_serial(values);
+        if (mode & HCM_CART_MODE) {
+            output_vector_cart_serial(values);
+        } else {
+            output_vector_spherical_serial(values);
+        }
     }
 
     return 0;
+}
+
+void update_debug() {
+    /** The main loop when running in debug mode */
+    if (mode & HCM_DEBUG_OSC_MODE) {
+        run_motor(cdmotor, debugOscillation, settings.getPulseWidth(), motor_fracs[cdmotor]);
+        change_motor(cdmotor+1 % settings.getNMotors(), &cdmotor);
+    } else {
+        run_motor(cdmotor, cDelay, settings.getPulseWidth(), motor_fracs[cdmotor]);
+    }
+}
+
+void run_motor(uint8_t motor, float time_delay, uint16_t pulse_width, float frac) {
+    /** Runs the selected motor with a fractional duty cycle.
+
+    */
+    if (motor < 8 && frac < 1.0) {
+        // Calculate the number of pulseWidth units make up the sampling period.
+        unsigned long delay_decimation = time_delay/pulse_width;
+
+        float off_delay = time_delay*(1-frac) / delay_decimation;
+        float on_delay = time_delay*frac / delay_decimation;
+
+        for(int i = 0; i < delay_decimation; i++) {
+            set_motor(motor, LOW);
+            delay(off_delay);
+
+            set_motor(motor, HIGH);
+            delay(on_delay);
+        }
+    } else {
+        delay(time_delay);              // Wait the sampling period before reading the values.
+    }
 }
 
 //
@@ -478,21 +531,21 @@ uint8_t select_motor(float phi) {
     return (uint8_t)(adjusted_heading/phi_sep);
 }
 
-void change_motor(uint8_t motor) {
+void change_motor(uint8_t motor, uint8_t * old_motor) {
     /** Turn off the current (`cmotor`) and turn on the new motor (`motor`)
 
     @param[in] motor The new selected motor
     */
     
-    if (cmotor < settings.getNMotors()) {
-        set_motor(cmotor, LOW);
+    if (*old_motor < settings.getNMotors()) {
+        set_motor(*old_motor, LOW);
     }
 
     if(motor < settings.getNMotors()) {
         set_motor(motor, HIGH);
     }
 
-    cmotor = motor;
+    *old_motor = motor;
 }
 
 void set_motor(uint8_t motor, bool h_low) {
@@ -542,7 +595,11 @@ uint8_t toggleCompass() {
     
     // Turn off debugging mode if running mode is on
     if (mode & HCM_RUN_MODE) {
-        mode &= 0xff - HCM_DEBUG_MODE;
+        if (mode & HCM_DEBUG_MODE) {
+            set_motor(cdmotor, LOW);        // Turn off the currently running motor
+
+            mode &= 0xff - HCM_DEBUG_MODE;
+        }
         if (verbose) {
             Serial.println("Running mode enabled.");
         }
@@ -558,7 +615,11 @@ uint8_t toggleDebugMode() {
 
     // Turn off running mode if debug mode is on
     if (mode & HCM_DEBUG_MODE) {
-        mode &= 0xff - HCM_RUN_MODE;
+        if (mode & HCM_RUN_MODE) {
+            // Turn off the currently running motor
+            set_motor(cmotor, LOW);
+            mode &= 0xff - HCM_RUN_MODE;
+        }
     }
 
     if (verbose) {
@@ -612,9 +673,6 @@ uint8_t writeSettings() {
 uint8_t reloadSettings() {
     uint8_t read_all_err = settings.readAll();
 
-    if (read_all_err) {
-        settings = HaptiCapMagSettings(SETTINGS_LOC);
-    }
     // Set up the initial averaging rate and sensor gain
     compass.setAveragingRate(settings.getAveraging());     // 8 Averages per measurement
     compass.setGain(settings.getGain());
@@ -653,6 +711,11 @@ uint8_t outputSettings() {
     */
 
     char strBuff[10];       // For floats
+    Serial.print("Checksum: ");
+    Serial.println(int(settings.calculateChecksum()));
+
+    Serial.print("Checksum (EEPROM):");
+    Serial.println(int(settings.readChecksum()));
 
     Serial.print("Declination: ");
     dtostrf(settings.getDeclination(), 3, 2, strBuff);
@@ -719,7 +782,10 @@ uint8_t setPinLoc(uint8_t motor, int8_t pin_loc) {
     @return Returns 0 on no error.
     */
 
-    return settings.setPinLoc(motor, pin_loc);
+    uint8_t rv = settings.setPinLoc(motor, pin_loc);
+    if (!rv) {
+        pinMode(pin_loc, OUTPUT);
+    }
 }
 
 uint8_t setMotorCal(uint8_t motor, uint8_t motor_cal) {
@@ -728,16 +794,11 @@ uint8_t setMotorCal(uint8_t motor, uint8_t motor_cal) {
     @return Returns 0 on no error.
     */
 
-    return settings.setMotorCal(motor, motor_cal);
-}
-
-uint8_t setMotorCalFloat(uint8_t motor, float motor_cal) {
-    /** Set the motor calibration as a floating point duty cycle.
-
-    @return Returns 0 on no error.
-    */
-
-    return settings.setMotorCal(motor, motor_cal);
+    uint8_t rv = settings.setMotorCal(motor, motor_cal);
+    if (!rv) {
+        motor_fracs[motor] = settings.getMotorCal(motor) / 255.0;
+    }
+    return rv;
 }
 
 uint8_t setDebugMotor(uint8_t motor) {
@@ -746,7 +807,19 @@ uint8_t setDebugMotor(uint8_t motor) {
     @return Returns 0 on no error.
     */
 
-    cdmotor = motor;
+    // Turn off oscillation if you're setting the motor manually
+    mode &= 0xff - HCM_DEBUG_OSC_MODE;
+
+    change_motor(motor, &cdmotor);
+    return 0;
+}
+
+uint8_t setDebugOscillation(uint32_t delay_time) {
+    /** Oscillate between the different motors in debug mode. */
+    debugOscillation = delay_time;
+    mode |= HCM_DEBUG_OSC_MODE;
+
+    return 0;
 }
 
 uint8_t setPulseWidth(uint16_t pulse_width) {
@@ -819,4 +892,46 @@ uint8_t setPhaseOffset(float phi) {
     */
 
     return settings.setPhaseOffset(phi);
+}
+
+uint8_t setAllPinLocs(uint8_t pin_start, int8_t pin_increment) {
+    /** Set all the pin locations as a linearly increasing or decreasing function
+    */
+
+    uint8_t rv, orv = 0;
+    for (int motor = 0; motor < settings.getNMotors(); motor++) {
+        if(rv = setPinLoc(motor, pin_start + motor*pin_increment)) {
+            orv = rv;
+        }
+    }
+
+    return orv;
+}
+
+uint8_t setAllMotorCals(uint8_t motor_cal) {
+    /** Set all the motor fractions to the same value
+    */
+
+    uint8_t orv = 0;
+    uint8_t rv;
+    for (int motor = 0; motor < settings.getNMotors(); motor++) {
+        if(rv = setMotorCal(motor, motor_cal)) {
+            orv = rv;
+        }
+    }
+
+    return orv;
+}
+
+uint8_t setAllMotorCals(float motor_cal) {
+    /** Set all the motor fractions to the same value (float version) */
+    uint8_t orv = 0;
+    uint8_t rv;
+    for (int motor = 0; motor < settings.getNMotors(); motor++) {
+        if (rv = setMotorCal(motor, motor_cal)) {
+            orv = rv;
+        }
+    }
+
+    return orv;
 }

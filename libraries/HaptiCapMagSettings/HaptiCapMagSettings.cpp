@@ -39,6 +39,8 @@ HaptiCapMagSettings::HaptiCapMagSettings(uint32_t base_location) {
         pinLocs[i] = -1;                // Invalid motor
         motorCals[i] = 0xff;             // Frac = 1.0
     }
+
+    err_code = 0;
 }
 
 float HaptiCapMagSettings::getDeclination() {
@@ -498,11 +500,7 @@ uint8_t HaptiCapMagSettings::readAll() {
     uint8_t ochecksum = readChecksum();
     uint8_t checksum = calculateChecksum(sv);
 
-    if (checksum != ochecksum) {
-        err_code = EC_INVALID_CHECKSUM;
-    }
-
-    return err_code;
+    return err_code = (checksum != ochecksum)?EC_INVALID_CHECKSUM:0;
 }
 
 uint8_t HaptiCapMagSettings::get_err_code() {
@@ -620,7 +618,7 @@ void HaptiCapMagSettings::writePhaseOffset() {
 
     float cPhaseOffset = readPhaseOffset();
     if (phaseOffset != cPhaseOffset) {
-        EEPROM.writeByte(HC_OFFSET_ADDR + base_addr, phaseOffset);
+        EEPROM.writeFloat(HC_OFFSET_ADDR + base_addr, phaseOffset);
     }
 
 }
