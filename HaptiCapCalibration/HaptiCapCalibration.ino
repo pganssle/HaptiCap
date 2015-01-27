@@ -645,3 +645,178 @@ uint8_t reloadSettings() {
 
     return read_all_err;
 }
+
+uint8_t outputSettings() {
+    /** Output the values of the settings object over the serial port
+
+    @return Returns 0 on no error.
+    */
+
+    char strBuff[10];       // For floats
+
+    Serial.print("Declination: ");
+    dtostrf(settings.getDeclination(), 3, 2, strBuff);
+    strcat(strBuff, "°");
+    Serial.println(strBuff);
+
+    Serial.print("Inclination: ");
+    dtostrf(settings.getInclination(), 3, 2, strBuff);
+    strcat(strBuff, "°");
+    Serial.println(strBuff);
+
+    Serial.print("Sample rate: ");
+    dtostrf(settings.getSampleRate(), 3, 2, strBuff);
+    Serial.print(strBuff);
+    Serial.println(" Hz");
+
+    Serial.print("Pulse width: ");
+    Serial.print(int(settings.getPulseWidth()));
+    Serial.println(" ms");
+
+    Serial.print("Num. Motors: ");
+    Serial.println(int(settings.getNMotors()));
+
+    Serial.print("Phase Offset: ");
+    dtostrf(settings.getPhaseOffset(), 3, 2, strBuff);
+    strcat(strBuff, "°");;
+    Serial.println(strBuff);
+
+    Serial.print("Use Calibration: ");
+    Serial.println(settings.getUseCalibration()?"True":"False");
+
+    Serial.print("Gain: ");
+    Serial.print(int(settings.getGain()));
+    Serial.print("; Range: ±");
+    dtostrf(compass.gainRanges[settings.getGain()], 1, 2, strBuff);
+    Serial.print(strBuff);
+    Serial.println(" mG");
+
+    Serial.print("Averages per measurement: ");
+    Serial.print(int(settings.getAveraging()));
+    Serial.print("(");
+    Serial.print(1<<int(settings.getAveraging()));
+    Serial.println(" averages)");
+
+    Serial.println("Motor\tPin\tFrac");
+    for (int motor = 0; motor < settings.getNMotors(); motor++) {
+        Serial.print(motor<10?"    ":"   ");
+        Serial.print(motor);
+        Serial.print("\t");
+        Serial.print(" ");
+        Serial.print(settings.getPinLoc(motor));
+        Serial.print("\t");
+        dtostrf(settings.getMotorCal(motor) / 255.0, 1, 3, strBuff);
+        Serial.println(strBuff);
+    }
+
+
+    return 0;
+}
+
+uint8_t setPinLoc(uint8_t motor, int8_t pin_loc) {
+    /** Set the pin location for a specific motor. 
+
+    @return Returns 0 on no error.
+    */
+
+    return settings.setPinLoc(motor, pin_loc);
+}
+
+uint8_t setMotorCal(uint8_t motor, uint8_t motor_cal) {
+    /** Set the motor calibration as a fraction of 255.
+
+    @return Returns 0 on no error.
+    */
+
+    return settings.setMotorCal(motor, motor_cal);
+}
+
+uint8_t setMotorCalFloat(uint8_t motor, float motor_cal) {
+    /** Set the motor calibration as a floating point duty cycle.
+
+    @return Returns 0 on no error.
+    */
+
+    return settings.setMotorCal(motor, motor_cal);
+}
+
+uint8_t setDebugMotor(uint8_t motor) {
+    /** In debug mode, set which motor is active.
+
+    @return Returns 0 on no error.
+    */
+
+    cdmotor = motor;
+}
+
+uint8_t setPulseWidth(uint16_t pulse_width) {
+    /** Sets the pulse width in milliseconds
+
+    @return Returns 0 on no error.
+    */
+
+    return settings.setPulseWidth(pulse_width);
+}
+
+uint8_t setNMotors(uint8_t n_motors) {
+    /** Sets the number of motors in the cap.
+
+    @return Returns 0 on no error.
+    */
+
+    return settings.setNMotors(n_motors);
+}
+
+uint8_t setGain(uint8_t gain) {
+    /** Sets the gain values.
+
+    @return Returns errors from `HaptiCapMagSettings::setGain()`
+    */
+
+    return settings.setGain(gain);
+}
+
+uint8_t setAvg(uint8_t avg) {
+    /** Sets the averaging rate
+
+    @return Returns errors from `HaptiCapMagSettings::setAveraging()`
+    */
+
+    return settings.setAveraging(avg);
+}
+
+uint8_t setDeclination(float decl) {
+    /** Sets the declination for the current settings object
+
+    @return Returns errors from `HaptiCapMagSettings::setDeclination()`
+    */
+
+    return settings.setDeclination(decl);
+}
+
+uint8_t setInclination(float incl) {
+    /** Sets the inclination for the current settings object
+
+    @return Returns errors from `HaptiCapMagSettings::setInclination()`
+    */
+
+    return settings.setInclination(incl);
+}
+
+uint8_t setSampleRate(float sr) {
+    /** Sets the sample rate for the current settings object
+
+    @return Returns errors from `HaptiCapMagSettings::setSampleRate()`
+    */
+
+    return settings.setSampleRate(sr);
+}
+
+uint8_t setPhaseOffset(float phi) {
+    /** Sets ths phase offset for the current settings object
+
+    @return Returns errors from `HaptiCapMagSettinsg::setPhaseOffset()`
+    */
+
+    return settings.setPhaseOffset(phi);
+}

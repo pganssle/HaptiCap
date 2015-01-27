@@ -10,11 +10,9 @@ CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
 */
 
 #include <Arduino.h>
-#include <EEPROM.h>
 #include <EEPROMex.h>
 #include <HaptiCapMagSettings.h>
 #include <tgmath.h>
-#include <util/crc16.h>
 
 HaptiCapMagSettings::HaptiCapMagSettings(uint32_t base_location) {
     /** Constructor for the HaptiCapMagSettings class
