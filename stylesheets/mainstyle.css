@@ -81,7 +81,7 @@ a:hover, a:active, a:focus { /* this group of selectors will give a keyboard nav
     font-weight: normal;
     position: absolute;
     top: 60px;
-    left: 80px;
+    left: 90px;
 }
 
 .header-icon-container {
