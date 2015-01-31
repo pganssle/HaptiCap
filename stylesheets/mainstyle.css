@@ -6,6 +6,13 @@ body {
     background-color: #FFF;
 }
 
+/* Preload mouseover images without JS, per https://stackoverflow.com/questions/24353560 */
+body:after {
+    display:none;
+    content: url('../images/logos/Github-Mark-Light-64px.png')
+             url('../images/logos/Hackaday-Skull-Light-64px.png');    
+}
+
 /* ~~ Element/tag selectors ~~ */
 ul, ol, dl { /* Due to variations between browsers, it's best practices to zero padding and margin on lists. For consistency, you can either specify the amounts you want here, or on the list items (LI, DT, DD) they contain. Remember that what you do here will cascade to the .nav list unless you write a more specific selector. */
     padding: 0;
@@ -41,21 +48,40 @@ a:hover, a:active, a:focus { /* this group of selectors will give a keyboard nav
 
 /* ~~ the header is not given a width. It will extend the full width of your layout. It contains an image placeholder that should be replaced with your own linked logo ~~ */
 .header {
-    height: 85px;
-    text-indent: 20px;
-    font-size: 36px;
+    height: 115px;
     color: #F5F5F5;
-    padding-top: 25px;
     z-index: 0;
-    background-color: #1A657B;
-    background-image: linear-gradient(top, rgb(28,108,132) 0%, rgb(18,72,88) 100%);
-    background-image: -o-linear-gradient(top, rgb(28,108,132) 0%, rgb(18,72,88) 100%);
-    background-image: -webkit-linear-gradient(top, rgb(28,108,132) 0%, rgb(18,72,88) 100%);
-    background-image: -ms-linear-gradient(top, rgb(28,108,132) 0%, rgb(18,72,88) 100%);
-    background-image: -moz-linear-gradient(top, rgb(28,108,132) 0%, rgb(18,72,88) 100%);
-    font-weight: bolder;
+    background: #335566; /* Old browsers */
+    background: -moz-linear-gradient(top, #335566 0%, #0f3549 100%); /* FF3.6+ */
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#335566), color-stop(100%,#0f3549)); /* Chrome,Safari4+ */
+    background: -webkit-linear-gradient(top, #335566 0%,#0f3549 100%); /* Chrome10+,Safari5.1+ */
+    background: -o-linear-gradient(top, #335566 0%,#0f3549 100%); /* Opera 11.10+ */
+    background: -ms-linear-gradient(top, #335566 0%,#0f3549 100%); /* IE10+ */
+    background: linear-gradient(to bottom, #335566 0%,#0f3549 100%); /* W3C */
+    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#335566', endColorstr='#0f3549',GradientType=0 ); /* IE6-9 */
+}
+
+.header-logo-span {
+    font-size: 42px;
+    position: absolute;
+    left: 60px;
+    top: 10px;
+    color: white;
     font-style: oblique;
-    text-shadow: 2px 2px 2px #666;
+    font-weight: bolder;
+    text-shadow: 1px 1px 0 #000,
+                 1px 2px 0 #000,
+                 2px 1px 0 #000,
+                 2px 2px 0 #000;
+}
+
+.header-subtitle-span {
+    font-size: 24px;
+    font-style: oblique;
+    font-weight: normal;
+    position: absolute;
+    top: 60px;
+    left: 80px;
 }
 
 .header-icon-container {
@@ -120,17 +146,6 @@ a.fill-div {
     text-decoration: none;
 }
 
-/* ~~ These are the columns for the layout. ~~ 
-
-1) Padding is only placed on the top and/or bottom of the divs. The elements within these divs have padding on their sides. This saves you from any "box model math". Keep in mind, if you add any side padding or border to the div itself, it will be added to the width you define to create the *total* width. You may also choose to remove the padding on the element in the div and place a second div within it with no width and the padding necessary for your design.
-
-2) No margin has been given to the columns since they are all floated. If you must add margin, avoid placing it on the side you're floating toward (for example: a right margin on a div set to float right). Many times, padding can be used instead. For divs where this rule must be broken, you should add a "display:inline" declaration to the div's rule to tame a bug where some versions of Internet Explorer double the margin.
-
-3) Since classes can be used multiple times in a document (and an element can also have multiple classes applied), the columns have been assigned class names instead of IDs. For example, two sidebar divs could be stacked if necessary. These can very easily be changed to IDs if that's your preference, as long as you'll only be using them once per document.
-
-4) If you prefer your nav on the left instead of the right, simply float these columns the opposite direction (all left instead of all right) and they'll render in reverse order. There's no need to move the divs around in the HTML source.
-
-*/
 .sidebar1 {
     float: left;
     width: 16%;
@@ -138,6 +153,7 @@ a.fill-div {
     padding-bottom: 20px;
     position: relative;
     left: -8px;
+    top:-5px;
     z-index: 4;
     padding-top: 20px;
     border: 1px solid #000; 
