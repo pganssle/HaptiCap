@@ -146,6 +146,10 @@ a.fill-div {
     text-decoration: none;
 }
 
+sup.a {
+    text-decoration: none;
+}
+
 .sidebar1 {
     float: left;
     width: 16%;
@@ -206,6 +210,10 @@ ul.nav a:hover, ul.nav a:active, ul.nav a:focus { /* this changes the background
     background-color: #818181;
 }
 
+sup a:link, a:visited {
+    text-decoration: none;
+    font-weight:bold;
+}
 /* ~~ The footer ~~ */
 .footer {
     padding-top:5px;
