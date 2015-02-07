@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" type="text/css" href="stylesheets/mainstyle.css" />
+    <title>HaptiCapMag&#58; A haptic compass built into a hat</title>
+</head>
+
+<body>
+    
+<div class="container">    
+<div class="header">
+    <span class="header-logo-span">HaptiCap<span style="color:#FF5A00">Mag</span></span> 
+    <span class="header-subtitle-span"> A haptic compass built into a hat.</span>
+</div>
+
+    <div class="content">
+        <div class="header-icon-container">
+            <div class="header-icon-wrapper header-gh">
+                <a href="https://github.com/pganssle/HaptiCap" class="fill-div">&nbsp;</a>
+            </div>
+
+            <div class="header-icon-wrapper header-had">
+                <a href="http://hackaday.io/project/4078-hapticap" class="fill-div">&nbsp;</a>
+            </div>
+        </div>
+<!-- Start Content -->
+<h1>
+    Project Overview
+</h1>
+
+<p><a href="images/photos/high-res/HaptiCap%20006%20-%20Worn%20Left.png"><img src="images/photos/low-res/HaptiCap%20LowRes%20006%20-%20Worn%20Left.png" alt="Wearing the hat, front view" align="left" width="300px" hspace="5px" /></a>
+In 2007, there was an <a href="http://archive.wired.com/wired/archive/15.04/esp.html">article in Wired</a> about someone who made and wore a <em>haptic compass</em>, which always indicated north using an array of vibrator motors, purportedly giving the wearer a "sixth sense"<sup><a name="ref1" href="#fnote1">1</a></sup>. At the time, I was much less jaded than I am now about science and technology journalism, and as a result I became enamored of the idea of gaining a new sense -- even a fairly useless one. At the time, I was an undergrad with no money or ideas about where to start. <a href="images/photos/high-res/HaptiCap%20007%20-%20Worn%20Rear.png"><img src="images/photos/low-res/HaptiCap%20LowRes%20007%20-%20Worn%20Rear.png" width="300px" align="right"></a>I've gotten a PhD in physical chemistry doing research that involved building an <a href="https://github.com/pganssle-research/alkali-vapor-cell-magnetometry-dissertation/releases">ultra-sensitive magnetometer</a>, and so last year I decided I finally had the time, know-how (and income) to build my haptic compass.</p>
+
+
+
+<p>Previous haptic compass designs have used a <a href="http://feelspace.cogsci.uni-osnabrueck.de/#tech">belt</a> and an <a href="http://sensebridge.net/projects/northpaw/">anklet</a>, but during the time I had to think about this, I decided that a hat might actually be the ideal form factor for this sort of thing. The primary motivation is that I wanted my compass to be lightweight and blend in to normal attire -- hats have a surprising amount of hidden space for electronics in them -- but as it turns out there are some other advantages in the usability of the indicator itself (which I get into in the <a href="#operation">operation section</a>)</p>
+
+<h3>
+    <a name="breakdown"></a>Breakdown
+</h3>
+
+<p><a href="images/photos/high-res/HaptiCap%20018%20-%20Inside%20View.png"><img src="images/photos/low-res/HaptiCap%20LowRes%20018%20-%20Inside%20View.png" height="350px" align="left" hspace="5px"></a></p>
+
+<p>The hat I built uses 8 vibrator motors to indicate direction, and a Honeywell <a href="http://www.amazon.com/GY-273-HMC5883L-Magnetic-Electronic-Compass/dp/B00GYVDBQY/?tag=thefireguides-20">HMC5883L 3-axis digital magnetometer</a> (using the GY-273 breakout board) to determine the compass heading, both of which are controlled by an <a href="http://www.amazon.com/SainSmart-Nano-v3-0-Compatible-Arduino/dp/B00761NDHI?tag=thefireguides-20">Arduino nano</a>; power is supplied by battries from an old smartphone<sup><a name="ref2" href="#fnote2">2</a></sup>, along with a <a href="http://www.amazon.com/RioRand-LM2596-Converter-1-23V-30V-Pcs-LM2596/dp/B008BHB4L8/?tag=thefireguides-20">step up transformer</a>. The hat I got for free at a conference, courtesy of <a href="http://www.triangleanalytical.com/">Triangle Analytical, Inc</a>.</p>
+
+<p>The magnetometer is mounted on the underside of the visor/brim of the hat, and the motors are inserted into small pockets sewn into the band. The battery, step up transformer and most of the connections are sewn into the underside of the crown. The most obtrusive part of my prototype is the Arduino itself, mainly because the one I bought already had DIP headers soldered into it; ideally, I would just use wire-to-wire connections for everything to lower the profile of the component, but because I don't want to desolder the long DIP headers, so I simply added a small pocket to the back into which I've slipped the breakout board.</p>
+
+<p>One significant caveat of this design is that, from what I understand, some step-up transformers have capacitors that are not necessarily rated to the maximum voltage of voltage regulator, so if you accidentally turn the potentiometer too high, the <strong>capacitors can explode</strong>. <div align="center"><a href="images/photos/high-res/HaptiCap%20013%20-%20Arduino%20Pocket.png"><img src="images/photos/low-res/HaptiCap%20LowRes%20013%20-%20Arduino%20Pocket.png" width="450px" hspace="5px" align="right"></a></div> This is not something I would enjoy happening to a component pointed directly at my skull, so rather while the intuitive way to mount the step-up transformer is facing <em>in</em>, I suggest mounting it facing out; I've found that it helps to use styrofoam standoffs to prevent the thread from fraying and loosening in this configuration. This simultaneously minimizes the chance that I'll accidentally turn the screw on the potentiometer and, if the capacitors do explode, they'll hopefully explode away from my head, not towards it.</p>
+
+<p>For simplicity's sake, in the prototype the vibrator motors are actuated directly using the digital outputs of the Arduino, but these are primarily logic outputs and were not designed to drive circuits, so it may be better to use something like a <a href="https://www.sparkfun.com/products/9056">CD74HC4067 16-channel digital multiplexer</a> hooked up to the output of the step-up transformer. You can also try using <a href="https://github.com/pganssle/AD525x">1 kΩ AD5254 digital potentiometers</a>, which make it easier to control the vibration intensity, but requires 1 IC for every 4 channels. In my experience, both seem to have an "on" voltage of approximately 50 Ω.</p>
+
+<h3>
+    <a name="operation"></a>Operation
+</h3>
+
+<p>Using either the direct digital pin output or the multiplexer, the vibrator motors are either powered or they aren't -- as opposed to the use of a digital potentiometer, where the current can be changed more or less continuously -- but with all the motors going full blast, the hat can be a bit overwhelming - not to mention a power hog. I've found, however, that if the motors are pulsed sufficiently fast (in my case I'm using a 20 ms pulsing period), inertia allows them to still feel like they are running continuously, but with lower intensity. Additionally, the motors on the sides are much closer to my ears, and so I'm much more sensitive to their vibrations than the motors on the front and back, so I added a mechanism in the Arduino sketch to calibrate each motor's duty cycle independently, so all the motors have the same subjective intensity.</p>
+
+<p>One significant advantage that the hat form factor has over belts (and possibly anklets, I'm not sure) is that because I can turn my head back and forth, I can easily increase the effective "resolution" of the device. By using 8 motors, I have approximately 45° resolution -- a 15° heading and a -15° heading are indicated in the same way (motor 0 is activated); however, I know that the motor switches over at ±22.5° offsets from the indicated motor, so I can actually fairly accurately deduce the direction of north by seeing how much I have to turn my head in either direction to get the motor to switch. Generally I find that I actually move my head around enough anyway that I don't have to actively try to increase the resolution, and my general "north sense" is fairly accurate anyway.</p>
+
+<h3>
+    <a name="impression"></a>Impressions
+</h3>
+
+<p>I've been wearing the device for about two weeks now, so it may be a bit early to tell. I certainly am much more aware of my absolute orientation, and I'm often surprised by what it is. When I was coming home the other day I said, "Hm, I always forget that our house faces North", which belies the fact that I already have some (wrong) intuitions about the relative orientations of various places I go and that I may be starting to correct those intuitions. So far I've only had one dream with north-sense in it: my bed faces north-south, and because the hat does not provide 3-dimensional information, it doesn't work right when I'm lying down, but in my dream I could sense that north was the direction normal to the crown of my head, and (in the dream) I took off the hat and started looking at it to try and debug why I was sensing something from the crown of my head - so it's hard to tell if that was a dream where north-sense was incorporated into the dream or a much more common (for me) dream of debugging a device.</p>
+
+<p>The most striking thing about wearing the hat all the time, however, is that I'm not acutely aware of how many ferromagnetic objects are around that are magnetized enough to interfere with a compass. I'll often walk by a wall, doorway or pillar, and the compass will stop pointing north and sometimes will point towards the ferromagnetic object. This is particularly problematic on the highways, which are made of steel-reinforced concrete. Evidently, the rebar in the concrete must become magnetized over time, because driving on the highway can be very disorienting, as the field vector often pulsates rapidly. You can see this when comparing data I took with my phone's magnetometer while standing in my house (left) and while driving on the highway (right) (plotted in spherical coordinates):</p>
+<div align="center">
+<p><a href="images/plots/Magnetometer%20Data%20-%20Driving%20Normal%20Comparison.png"><img src="images/plots/Magnetometer%20Data%20-%20Driving%20Normal%20Comparison.png" alt="Magnetometer data" width="600px" align="center"/></a></p>
+</div>
+<p>I can generally get a sense of which direction is north, but it's very hard to trust with that much interference. Overall, I worry that the prevalence of ferromagnetic materials in modern life is interfering with my brain's ability to interpret the sensations from the compass as truly "north", because when north is a counter-intuitive direction I seem to automatically assume it's because I'm near something ferromagnetic, though very frequently it's actually counter-intuitive just because I still haven't developed a strong sense for my absolute direction yet. I may be able to fix these problems by adding an accelerometer to the hat and indicating if there's a particularly strange inclination to the magnetization.</p>
+
+<h4>
+    <a name="footnotes"></a>
+    Footnotes
+</h4>
+
+<ol class="task-list">
+<li><p><a href="#ref1" name="fnote1">^</a> Though in fact we have <a href="https://en.wikipedia.org/wiki/Sense#Non-traditional_senses">many more than 5 senses</a> already.</p></li>
+<li><p><a href="#ref2" name="fnote2">^</a> Any phone battery should work, I used batteries from my <a href="http://www.amazon.com/Sprint-Extended-Battery-Charger-Incredible/dp/B004RXIL1G?tag=thefireguides-20">HTC Evo 4G</a>, but you may be able to get a better deal by surfing around eBay for old phone batteries with chargers.</p></li>
+</ol>
+
+    </div>
+<!-- End Content -->
+        
+
+    </div>
+    <div class="sidebar1">
+        <ul class="nav">
+            <li><a href="index.html">Overview</a></li>
+            <li><a href="device-details.html">Device Details</a></li>
+            <li><a href="operational-details.html">Operational Details</a></li>
+            <li><a href="instructions.html">Instructions</a></li>
+            <li><a href="impressions.html">Impressions</a></li>
+            <li><a href="https://github.com/pganssle/HaptiCap">Source Code</a></li>
+            <li><a href="documentation">Documentation</a></li>
+
+        </ul>
+    </div>
+
+
+    <div class="footer">
+        <p><div style="float:left; margin-right:15px"><a href="https://creativecommons.org/licenses/by/4.0/"><img src="images/logos/cc-large.png" height="50px"/><img src="images/logos/cc-by-large.png" height="50px"/></a></div>
+            <em>Text, images and source code released under a Creative Commons Attribution 4.0 International License (<a href="https://creativecommons.org/licenses/by/4.0/">CC-BY 4.0</a>). If you'd like to use anything under other terms, please contact me to work something out.</em>
+        </p>
+    </div> <!-- end .footer -->
+</div> <!-- end .container -->
+</body>
+</html>

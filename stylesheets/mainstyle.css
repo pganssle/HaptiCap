@@ -46,6 +46,14 @@ a:hover, a:active, a:focus { /* this group of selectors will give a keyboard nav
     margin: 0 auto;
 }
 
+.caption {
+    font-size: 12px;
+    font-style: italic;
+    width:100%;
+    text-align:center;
+    float:center;
+}
+
 /* ~~ the header is not given a width. It will extend the full width of your layout. It contains an image placeholder that should be replaced with your own linked logo ~~ */
 .header {
     height: 115px;

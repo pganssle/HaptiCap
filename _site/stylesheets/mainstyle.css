@@ -1,0 +1,250 @@
+body {
+    font: 100%/1.4 Verdana, Arial, Helvetica, sans-serif;
+    margin: 0;
+    padding: 0;
+    color: #000;
+    background-color: #FFF;
+}
+
+/* Preload mouseover images without JS, per https://stackoverflow.com/questions/24353560 */
+body:after {
+    display:none;
+    content: url('../images/logos/Github-Mark-Light-64px.png')
+             url('../images/logos/Hackaday-Skull-Light-64px.png');    
+}
+
+/* ~~ Element/tag selectors ~~ */
+ul, ol, dl { /* Due to variations between browsers, it's best practices to zero padding and margin on lists. For consistency, you can either specify the amounts you want here, or on the list items (LI, DT, DD) they contain. Remember that what you do here will cascade to the .nav list unless you write a more specific selector. */
+    padding: 0;
+    margin: 0;
+}
+h1, h2, h3, h4, h5, h6, p {
+    margin-top: 0;   /* removing the top margin gets around an issue where margins can escape from their containing div. The remaining bottom margin will hold it away from any elements that follow. */
+    padding-right: 15px;
+    padding-left: 15px; /* adding the padding to the sides of the elements within the divs, instead of the divs themselves, gets rid of any box model math. A nested div with side padding can also be used as an alternate method. */
+}
+a img { /* this selector removes the default blue border displayed in some browsers around an image when it is surrounded by a link */
+    border: none;
+}
+
+/* ~~ Styling for your site's links must remain in this order - including the group of selectors that create the hover effect. ~~ */
+a:link {
+    color: #42413C;
+    text-decoration: underline; /* unless you style your links to look extremely unique, it's best to provide underlines for quick visual identification */
+}
+a:visited {
+    color: #6E6C64;
+    text-decoration: underline;
+}
+a:hover, a:active, a:focus { /* this group of selectors will give a keyboard navigator the same hover experience as the person using a mouse. */
+    text-decoration: none;
+}
+
+/* ~~this fixed width container surrounds the other divs~~ */
+.container {
+    width: 95%;
+    margin: 0 auto;
+}
+
+.caption {
+    font-size: 12px;
+    font-style: italic;
+    width:100%;
+    text-align:center;
+    float:center;
+}
+
+/* ~~ the header is not given a width. It will extend the full width of your layout. It contains an image placeholder that should be replaced with your own linked logo ~~ */
+.header {
+    height: 115px;
+    color: #F5F5F5;
+    z-index: 0;
+    background: #335566; /* Old browsers */
+    background: -moz-linear-gradient(top, #335566 0%, #0f3549 100%); /* FF3.6+ */
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#335566), color-stop(100%,#0f3549)); /* Chrome,Safari4+ */
+    background: -webkit-linear-gradient(top, #335566 0%,#0f3549 100%); /* Chrome10+,Safari5.1+ */
+    background: -o-linear-gradient(top, #335566 0%,#0f3549 100%); /* Opera 11.10+ */
+    background: -ms-linear-gradient(top, #335566 0%,#0f3549 100%); /* IE10+ */
+    background: linear-gradient(to bottom, #335566 0%,#0f3549 100%); /* W3C */
+    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#335566', endColorstr='#0f3549',GradientType=0 ); /* IE6-9 */
+}
+
+.header-logo-span {
+    font-size: 42px;
+    position: absolute;
+    left: 60px;
+    top: 10px;
+    color: white;
+    font-style: oblique;
+    font-weight: bolder;
+    text-shadow: 1px 1px 0 #000,
+                 1px 2px 0 #000,
+                 2px 1px 0 #000,
+                 2px 2px 0 #000;
+}
+
+.header-subtitle-span {
+    font-size: 24px;
+    font-style: oblique;
+    font-weight: normal;
+    position: absolute;
+    top: 60px;
+    left: 90px;
+}
+
+.header-icon-container {
+    height: 48px;
+    width: 106px;
+    padding: 0;
+    z-index: 3;
+    position: absolute;
+    right: 50px;
+    top: -30px;
+
+}
+
+.header-icon-wrapper {
+    height: 48px;
+    width: 48px;
+    background-color: none;
+    padding: 0;
+    position: absolute;
+}
+
+.header-gh {
+    height: 48px;
+    width: 48px;
+    left: 0px;
+    top: 0px;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    background-image: url('../images/logos/GitHub-Mark-64px.png');
+    background-size: 48px 48px;
+}
+
+.header-gh:hover {
+    background-image: url('../images/logos/GitHub-Mark-Light-64px.png');
+}
+
+.header-had {
+    right: 0px;
+    top: 0px;
+    background-image: url('../images/logos/Hackaday-Skull-Light-64px.png');
+    background-size: 48px 48px;
+    background-color: #000;
+}
+
+.header-had:hover {
+    background-image: url('../images/logos/Hackaday-Skull-64px.png');
+    background-color: #FFF;
+    border: 1px solid #000;
+}
+
+.header-icon {
+    width: 32px;
+    height: 32px;
+}
+
+/* See http://stackoverflow.com/a/8928888 */
+a.fill-div {
+    display: block;
+    height: 100%;
+    width: 100%;
+    text-decoration: none;
+}
+
+sup.a {
+    text-decoration: none;
+}
+
+.sidebar1 {
+    float: left;
+    width: 16%;
+    background-color: #444444;
+    padding-bottom: 20px;
+    position: relative;
+    left: -8px;
+    top:-5px;
+    z-index: 4;
+    padding-top: 20px;
+    border: 1px solid #000; 
+    background-image: linear-gradient(top, rgb(62, 62, 62) 0%, rgb(100,100,100) 50%, rgb(62, 62, 62) 100%);
+    background-image: -o-linear-gradient(top, rgb(62, 62, 62) 0%, rgb(100,100,100) 50%, rgb(62, 62, 62) 100%);
+    background-image: -webkit-linear-gradient(top, rgb(62, 62, 62) 0%, rgb(100,100,100) 50%, rgb(62, 62, 62) 100%);
+    background-image: -ms-linear-gradient(top, rgb(62, 62, 62) 0%, rgb(100,100,100) 50%, rgb(62, 62, 62) 100%);
+    background-image: -moz-linear-gradient(top, rgb(62, 62, 62) 0%, rgb(100,100,100) 50%, rgb(62, 62, 62) 100%);
+
+}
+.content {
+    padding: 10px 0;
+    width: 80%;
+    float: left;
+    margin-left: 2%;
+    background-color: #F3F3F3;
+    position: relative;
+    top: -10px;
+    z-index: 1;
+    border: 1px solid #000;
+}
+
+/* ~~ This grouped selector gives the lists in the .content area space ~~ */
+.content ul, .content ol {
+    padding: 0 15px 0px 40px; /* this padding mirrors the right padding in the headings and paragraph rule above. Padding was placed on the bottom for space between other elements on the lists and on the left to create the indention. These may be adjusted as you wish. */
+}
+
+/* ~~ The navigation list styles (can be removed if you choose to use a premade flyout menu like Spry) ~~ */
+ul.nav {
+    list-style: none; /* this creates the top border for the links - all others are placed using a bottom border on the LI */
+    margin-bottom: 0px; /* this creates the space between the navigation on the content below */
+    margin-top: 0px;
+    left: 0px;
+    z-index: 2;
+    list-style-position: inside;
+}
+ul.nav li:before {
+    content:"• ",
+    color:"#FFF"
+}
+ul.nav a, ul.nav a:visited { /* grouping these selectors makes sure that your links retain their button look even after being visited */
+    padding: 5px 5px 5px 15px;
+    display: block;  /*this width makes the entire button clickable for IE6. If you don't need to support IE6, it can be removed. Calculate the proper width by subtracting the padding on this link from the width of your sidebar container. */
+    text-decoration: none;
+    background-color: #666666;
+    color: #FFF;
+}
+ul.nav a:hover, ul.nav a:active, ul.nav a:focus { /* this changes the background and text color for both mouse and keyboard navigators */
+    color: #FFF;
+    background-color: #818181;
+}
+
+sup a:link, a:visited {
+    text-decoration: none;
+    font-weight:bold;
+}
+/* ~~ The footer ~~ */
+.footer {
+    padding-top:5px;
+    padding-bottom: 5px;
+    background-color: #CCCCCC;
+    position: relative;/* this gives IE6 hasLayout to properly clear */
+    color: #333;
+    clear: both; /* this clear property forces the .container to understand where the columns end and contain them */
+
+}
+
+/* ~~ miscellaneous float/clear classes ~~ */
+.fltrt {  /* this class can be used to float an element right in your page. The floated element must precede the element it should be next to on the page. */
+    float: right;
+    margin-left: 8px;
+}
+.fltlft { /* this class can be used to float an element left in your page. The floated element must precede the element it should be next to on the page. */
+    float: left;
+    margin-right: 8px;
+}
+.clearfloat { /* this class can be placed on a <br /> or empty div as the final element following the last floated div (within the #container) if the #footer is removed or taken out of the #container */
+    clear:both;
+    height:0;
+    font-size: 1px;
+    line-height: 0px;
+}
