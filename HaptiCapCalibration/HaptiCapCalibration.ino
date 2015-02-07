@@ -67,10 +67,10 @@ void setup() {
     compass = HMC5883L();
     compass.initialize();
 
-    if (reloadSettings()) {
+    uint8_t read_err = reloadSettings();
+
+    if (read_err) {
         settings = HaptiCapMagSettings(SETTINGS_LOC);
-        running = false;
-        debugging = true;
     }
 
     // Start the serial port
@@ -256,12 +256,12 @@ uint8_t processFunction(char * funcString) {
         case HCC_FD_SET_PIN_LOC:
         case HCC_FD_SET_ALL_PL:
         case HCC_FD_SET_MCAL:
-            int8_t int1, int2;
+            int16_t int1, int2;
             if (sscanf(func_args, "%d,%d", &int1, &int2) < 2) {
                 return HCC_EC_INVALID_FARG;
             }
 
-            if (int1 < 0) {
+            if (int1 < 0 || int1 > 255) {
                 return HCC_EC_INVALID_UINT;
             }
 
@@ -270,7 +270,7 @@ uint8_t processFunction(char * funcString) {
             } else if(cFunc == HCC_FD_SET_ALL_PL) {
                 return setAllPinLocs(int1, int2);
             }else if (cFunc == HCC_FD_SET_MCAL) {
-                if (int2 < 0) {
+                if (int2 < 0 || int2 > 255) {
                     return HCC_EC_INVALID_UINT;
                 }
                 return setMotorCal(int1, int2);
@@ -362,7 +362,12 @@ uint8_t update_compass() {
 
     // Read the calibrated sensor values from the compass
     uint8_t saturated;
-    Vec3<float> values = compass.readCalibratedValues(NULL);
+    Vec3<float> values;
+    if (settings.getUseCalibration()) {
+        values = compass.readCalibratedValues(&saturated);
+    } else {
+        values = compass.readScaledValues(&saturated);
+    }
 
     // The sensor is upside-down, so invert the x and z axes.
     values.x = -values.x;
@@ -519,10 +524,18 @@ uint8_t select_motor(float phi) {
     */
     
     float phi_sep = 360/settings.getNMotors();
-    float adjusted_heading = fmod(phi-phi_sep*0.5 + settings.getPhaseOffset(), 360.0);
+    
+    phi -= 90;                          // Change to angle off of the Y-axis, not angle off of X-axis
+    phi += settings.getPhaseOffset();   // Include phase offset.
+    phi += phi_sep * 0.5;               // Make the change-over point equidistant between two motors.
 
+    float adjusted_heading = fmod(phi, 360.0);  // Wrap at +/- 360.
+
+    // Ensure that it's between 0 and 360, then invert the logic to select the motor.
     if(adjusted_heading < 0) {
-        adjusted_heading = 360+adjusted_heading;
+        adjusted_heading = -adjusted_heading;
+    } else {
+        adjusted_heading = 360-adjusted_heading;
     }
 
     return (uint8_t)(adjusted_heading/phi_sep);
@@ -637,7 +650,7 @@ uint8_t toggleCalibration() {
     }
 
     if (useCalibration) {
-        compass.getCalibration(true);   // Make sure the calibration is valid.
+        compass.getCalibration(true, NULL, 0, 200);   // Make sure the calibration is valid.
     }
 
     return settings.setUseCalibration(useCalibration);
@@ -676,7 +689,7 @@ uint8_t reloadSettings() {
     compass.setGain(settings.getGain());
 
     if (settings.getUseCalibration()) {
-        compass.getCalibration(true);               // Calibrate the compass with the self test
+        compass.getCalibration(true, NULL, 0, 200);               // Calibrate the compass with the self test
     }
 
     // Set the measurement mode to Idle (no measurements)
@@ -697,7 +710,7 @@ uint8_t reloadSettings() {
         digitalWrite(pin, LOW);
     }
 
-    cDelay = (unsigned long)(1.0/settings.getSampleRate() + 1); // Get sample delay, round up
+    cDelay = (unsigned long)(1000.0/settings.getSampleRate() + 1); // Get sample delay, round up
 
     return read_all_err;
 }

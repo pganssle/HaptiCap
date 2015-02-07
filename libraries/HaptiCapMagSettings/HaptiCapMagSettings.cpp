@@ -174,7 +174,7 @@ uint8_t HaptiCapMagSettings::getMotorCal(uint8_t motor) {
     return motorCals[motor];
 }
 
-uint8_t HaptiCapMagSettings::setDeclination(float declination) {
+uint8_t HaptiCapMagSettings::setDeclination(float decl) {
     /** Set the declination offset for the current settings object, in degrees
 
     Declination is the offset angle between magnetic north and the direction which you'd
@@ -189,16 +189,16 @@ uint8_t HaptiCapMagSettings::setDeclination(float declination) {
     your waypoint can have a profound effect on the declination error introduced by moving around;
     as such, this setting is not useful for indicating nearby waypoints.
 
-    @param[in] declination The declination in degrees, which wraps at ±180.
+    @param[in] decl The declination in degrees, which wraps at ±180.
 
     @return Returns 0 on no error. Currently this can raise no errors.
     */
 
-    declination = fmod(declination, 180.0);                                 // Wrap overflows
+    declination = fmod(decl, 180.0);                                 // Wrap overflows
     return 0;
 }
 
-uint8_t HaptiCapMagSettings::setInclination(float inclination) {
+uint8_t HaptiCapMagSettings::setInclination(float incl) {
     /** Set the inclination offset for the current settings object, in degrees
     
     Inclination is the offset angle between the x-y plane and the z-axis of the magnetic field
@@ -206,12 +206,12 @@ uint8_t HaptiCapMagSettings::setInclination(float inclination) {
     into account. It is included however in case you want to indicate a three-dimensional magnetic
     field vector.
 
-    @param[in] inclination The inclination in degrees, which wraps at ±180.
+    @param[in] incl The inclination in degrees, which wraps at ±180.
 
     @return Returns 0 on no error. Currently this can raise no errors.
     */
 
-    inclination = fmod(inclination, 180.0);
+    inclination = fmod(incl, 180.0);
     return 0;
 }
 
