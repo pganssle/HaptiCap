@@ -1,0 +1,20 @@
+var searchData=
+[
+  ['hapticapmagsettings',['HaptiCapMagSettings',['../class_hapti_cap_mag_settings.html',1,'HaptiCapMagSettings'],['../class_hapti_cap_mag_settings.html#aac9b840d0aea1e706c455bc4c18a4e39',1,'HaptiCapMagSettings::HaptiCapMagSettings()']]],
+  ['hapticapmagsettings_2ecpp',['HaptiCapMagSettings.cpp',['../_hapti_cap_mag_settings_8cpp.html',1,'']]],
+  ['hapticapmagsettings_2eh',['HaptiCapMagSettings.h',['../_hapti_cap_mag_settings_8h.html',1,'']]],
+  ['hc_5favg_5faddr',['HC_AVG_ADDR',['../group___scalar_settings.html#gab76b2494f065a1bd4ab7221c63a68d85',1,'HaptiCapMagSettings.h']]],
+  ['hc_5fdeclination_5faddr',['HC_DECLINATION_ADDR',['../group___scalar_settings.html#ga0547ba0ec2489dcdcaac11adf6041b5c',1,'HaptiCapMagSettings.h']]],
+  ['hc_5fgain_5faddr',['HC_GAIN_ADDR',['../group___scalar_settings.html#ga0d48fcac6168a5dd65a56167db91c0d5',1,'HaptiCapMagSettings.h']]],
+  ['hc_5finclination_5faddr',['HC_INCLINATION_ADDR',['../group___scalar_settings.html#ga5ad861db4e1e45e0ef7f3172c24b7352',1,'HaptiCapMagSettings.h']]],
+  ['hc_5fmax_5fnmotors',['HC_MAX_NMOTORS',['../_hapti_cap_mag_settings_8h.html#a5ffd3d11276e8174bce3e64c39a6e609',1,'HaptiCapMagSettings.h']]],
+  ['hc_5fmotorcal_5faddr',['HC_MOTORCAL_ADDR',['../group___array_settings.html#gafd603f32f3c7e90167b064322487636e',1,'HaptiCapMagSettings.h']]],
+  ['hc_5fnmotors_5faddr',['HC_NMOTORS_ADDR',['../group___scalar_settings.html#ga949a6a23aab0733d58932e451a1de688',1,'HaptiCapMagSettings.h']]],
+  ['hc_5foffset_5faddr',['HC_OFFSET_ADDR',['../group___scalar_settings.html#ga50eef679a6bb4aae030d2905b7983348',1,'HaptiCapMagSettings.h']]],
+  ['hc_5fpinlocs_5faddr',['HC_PINLOCS_ADDR',['../group___array_settings.html#ga51f89de0d311c90c1df1889a02b0c87e',1,'HaptiCapMagSettings.h']]],
+  ['hc_5fpulsewidth_5faddr',['HC_PULSEWIDTH_ADDR',['../group___scalar_settings.html#ga8188b849d765a11148d1e89150c48291',1,'HaptiCapMagSettings.h']]],
+  ['hc_5fsamplerate_5faddr',['HC_SAMPLERATE_ADDR',['../group___scalar_settings.html#gafd00941d0e31cbd03ed6740f4e9f8108',1,'HaptiCapMagSettings.h']]],
+  ['hc_5fsettings_5fversion',['HC_SETTINGS_VERSION',['../_hapti_cap_mag_settings_8h.html#a7bb6207faec431f612e9a0a1a53349ed',1,'HaptiCapMagSettings.h']]],
+  ['hc_5fuse_5fcalibration_5faddr',['HC_USE_CALIBRATION_ADDR',['../group___scalar_settings.html#gafd42852c8c529931f02eaa4c223bbf6a',1,'HaptiCapMagSettings.h']]],
+  ['hapticap',['HaptiCap',['../md_readme.html',1,'']]]
+];
