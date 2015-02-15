@@ -13,8 +13,15 @@ The hat itself contains 8 motors, which are circled and labeled in <b>Fig. 1</b>
 
 In addition to the motors, there are three basic components: the sensor (an [HMC5883L](https://github.com/pganssle/HMC5883L) 3-axis digital magnetometer - <b>Fig. 1A</b>), the power source (a cell-phone battery and DC-DC step-up transformer, <b>Fig. 1B</b> & <b>1C</b>), and the microcontroller (Arduino Nano, <b>Fig 1D</b>). In this page, I'll go into more details about each of the components and the reasons for the design choices I made.
 
+### Hat 
+
+I decided to build the device into a hat primarily because hats have points of contact all around the head (not to mention the parts on top of the skull, if you want to indicate a 3-dimensional vector), it's not unusual to see someone wearing one all the time, and they are large enough to easily conceal batteries and other electronics. Even in the earliest prototype stages, the device still looks like a more or less normal hat. I chose a baseball cap because I thought that the visor would be the best place to mount electronics, but I found that they were less obtrusive when hidden in the crown, so that concern is at least partially alleviated (though it is nice to mount the sensor on a stiff, level surface so that its effectiveness is relatively unaffected by how you are wearing the hat).
+
+I've also been considering the use of a knit skull-cap instead &mdash; I think this strikes a better balance between extra room for electronics (you could almost certainly fit everything in with minimal unsightly bulging) and not looking out of place in modern society. Obviously a fedora, bowler or top hat gives you a lot of room to place electronics, but these aren't really practical because they look ridiculous.<sup><a href="#ref1" name="fnote1">1</a></sup> There are two major issues with the use of a skull cap. The first is that they are much warmer than a standard baseball cap - which can cause you to sweat; even if you waterproof all the electronics (which you should probably do anyway in case it rains), I haven't yet thought of a good way to *wash* these hats, so you do want to minimize the sweating. The second is that in the summer (or if you live in a warm climate like California or Texas), it will seem very unusual that you are wearing a knit cap all the time, whereas baseball caps are standard attire year round.
+
 ### Power source
-The power in my prototype is supplied by an 1800 mAh battery from a Sprint HTC Evo 4G<sup><a name="fnote1" ref="#ref1">1</a></sup>, mounted in a wall-charging unit that I disassembled and repurposed. Since Li+ batteries like this one are generally 3.7 V, the voltage is stepped up with a DC-DC step-up transformer, which costs around $5 and generally represents only about 5% power loss.
+
+The power in my prototype is supplied by an 1800 mAh battery from a Sprint HTC Evo 4G<sup><a name="fnote2" href="#ref2">2</a></sup>, mounted in a wall-charging unit that I disassembled and repurposed. Since Li+ batteries like this one are generally 3.7 V, the voltage is stepped up with a DC-DC step-up transformer, which costs around $5 and generally represents only about 5% power loss.
 
 ### Vibration Motors
 
@@ -26,7 +33,7 @@ I bought the motors I'm using some time ago and I don't remember the exact model
 <span class="caption"><b>Fig. 2</b> A bare vibration motor</span>
 </div>
 
-In order to use it in the HaptiCap, it needs to be in a rigid shell. If you have a 3D printer available, you can make a custom shell, but I've found that -- at least with the motors I have -- the diameter of the motors almost exactly matches the inner diameter of a pencil tube, and so I was able to make 8 shells but cutting up a disused mechanical pencil.<sup><a name="fnote2" href="#ref2">1</a></sup>.
+In order to use it in the HaptiCap, it needs to be in a rigid shell. If you have a 3D printer available, you can make a custom shell, but I've found that -- at least with the motors I have -- the diameter of the motors almost exactly matches the inner diameter of a pencil tube, and so I was able to make 8 shells but cutting up a disused mechanical pencil.<sup><a name="fnote3" href="#ref3">3</a></sup>.
 
 <div class="img-container" align="center">
 <a href="images/photos/high-res/HaptiCap 012 - North Motor Pocket.png"><img src="images/photos/low-res/HaptiCap LowRes 012 - North Motor Pocket.png" alt="Cased vibrator motor" width="400px" align="center"/></a><br>
@@ -36,7 +43,7 @@ In order to use it in the HaptiCap, it needs to be in a rigid shell. If you have
 Another alternative is to use a [button type vibration motor](http://www.amazon.com/Diameter-Button-3V-4-5V-CellPhone-Vibrator/dp/B00H4PM1WO), which already has a rigid casing. I have some of these but I have not tested them yet, so I am not sure if the vibration is strong enough to be of use in this application.
 
 #### Current draw
-In the motors I'm using, I've measured a resistive load of ~25 Ω, and assuming they are designed to work with 3 V, that's a constant current draw of 120 mA with a 100% duty cycle. This is considerably more than the 40 mA specified in the <a href="http://arduino.cc/en/Main/arduinoBoardNano">Arduino Nano spec</a>, so it may be best to try a design using a [multiplexer](https://www.sparkfun.com/products/9056) rather than using the output pins directly<sup><a name="fnote3" href="#ref3">2</a></sup>. 
+In the motors I'm using, I've measured a resistive load of ~25 Ω, and assuming they are designed to work with 3 V, that's a constant current draw of 120 mA with a 100% duty cycle. This is considerably more than the 40 mA specified in the <a href="http://arduino.cc/en/Main/arduinoBoardNano">Arduino Nano spec</a>, so it may be best to try a design using a [multiplexer](https://www.sparkfun.com/products/9056) rather than using the output pins directly<sup><a name="fnote4" href="#ref4">4</a></sup>. 
 
 <div align="right" class="img-container" style="float:right; width:250px"><img src="images/photos/high-res/HaptiCap 017 - Thermal%20Image%20Arduino.jpg" /><br>
 <span class="caption"><b>Fig. 4</b> Thermal image of the Arduino Nano after several hours of continous use.</span>
@@ -48,8 +55,9 @@ Interestingly, either the microcontroller is extremely inefficient at supplying 
 
 #### Footnotes
 <ol class="footnotes">
-<li><a href="#fnote1" name="ref1">^</a> Originally I was using the batteries from my old phone, but these were getting a bit long in the tooth and some of them had started to bulge out a bit and fray, so I didn't want to keep using them in such close proximity to my head. I ended up buying 3 more along with a wall charger from eBay for about $15.
-<li><a href="#fnote2" name="ref2">^</a> I couldn't find my <a href="https://en.wikipedia.org/wiki/Rotary_tool">Dremel</a> and <a href="https://en.wikipedia.org/wiki/Grinding_wheel#Cut_off_wheels">cut-off wheels</a>, so I heated up a <a href="https://en.wikipedia.org/wiki/Utility_knife">box-cutter</a> with a lighter to rapidly cut the plastic.
-<li><a href="#fnote3" name="ref3">^</a> This is also useful if you have a microcontroller with fewer outputs than you have motors - the Nano has 8-14 digital outputs (depending on how you want to count). A digital multiplexer can control 8 motors with 3 digital I/O pins, and 16 motors with 4 digital I/O pins.
+<li><a href="#fnote1" name="ref1">^</a> I'm aware that there's probably a significant overlap between people who see nothing wrong with wearing a fedora in public and people who would read about a haptic feedback hat, but I'm sorry, if you wear a fedora and you are less than 70 years old, with rare exception you look ridiculous. Getting people to like bigger hats is not a scalable solution.
+<li><a href="#fnote2" name="ref2">^</a> Originally I was using the batteries from my old phone, but these were getting a bit long in the tooth and some of them had started to bulge out a bit and fray, so I didn't want to keep using them in such close proximity to my head. I ended up buying 3 more along with a wall charger from eBay for about $15.
+<li><a href="#fnote3" name="ref3">^</a> I couldn't find my <a href="https://en.wikipedia.org/wiki/Rotary_tool">Dremel</a> and <a href="https://en.wikipedia.org/wiki/Grinding_wheel#Cut_off_wheels">cut-off wheels</a>, so I heated up a <a href="https://en.wikipedia.org/wiki/Utility_knife">box-cutter</a> with a lighter to rapidly cut the plastic.
+<li><a href="#fnote4" name="ref4">^</a> This is also useful if you have a microcontroller with fewer outputs than you have motors - the Nano has 8-14 digital outputs (depending on how you want to count). A digital multiplexer can control 8 motors with 3 digital I/O pins, and 16 motors with 4 digital I/O pins.
 </ol>
 
