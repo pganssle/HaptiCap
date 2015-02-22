@@ -72,7 +72,7 @@ a:hover, a:active, a:focus { /* this group of selectors will give a keyboard nav
 .header-logo-span {
     font-size: 42px;
     position: absolute;
-    left: 60px;
+    left: 150px;
     top: 10px;
     color: white;
     font-style: oblique;
@@ -89,7 +89,7 @@ a:hover, a:active, a:focus { /* this group of selectors will give a keyboard nav
     font-weight: normal;
     position: absolute;
     top: 60px;
-    left: 90px;
+    left: 160px;
 }
 
 .header-icon-container {
